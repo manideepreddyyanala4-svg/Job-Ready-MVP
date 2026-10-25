@@ -63,16 +63,9 @@ function ShellNavigation({ path }: { path?: string }) {
   const router = useRouter();
 
   const logout = async () => {
-    [
-      "jobready-user",
-      "jobready-onboarded",
-      "jobready-onboarding-draft",
-      "jobready-student-profile",
-      "jobready-structured-resume",
-      "jobready-resume-ready",
-      "jobready-resume-source",
-      "jobready-entitlement",
-    ].forEach((key) => window.localStorage.removeItem(key));
+    const jobReadyKeys = Array.from({ length: window.localStorage.length }, (_, index) => window.localStorage.key(index))
+      .filter((key): key is string => Boolean(key?.startsWith("jobready-")));
+    jobReadyKeys.forEach((key) => window.localStorage.removeItem(key));
     await getSupabaseBrowserClient()?.auth.signOut();
     router.replace("/");
     router.refresh();
@@ -105,7 +98,7 @@ function ShellNavigation({ path }: { path?: string }) {
           <span className="brand-mark" aria-hidden="true" />
           JobReady
         </Link>
-        <details className="mobile-menu">
+        <details className="mobile-menu" key={path}>
           <summary aria-label="Open navigation">Menu</summary>
           <nav className="mobile-menu-panel" aria-label="Mobile navigation">
             {nav}
