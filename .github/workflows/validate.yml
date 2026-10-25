@@ -123,7 +123,8 @@ jobs:
           console.log(JSON.stringify({ viewport: "resume-mobile", overflow: resumeOverflow }));
           await page.screenshot({ path: "/tmp/jobready-screens/resume-mobile.png", fullPage: true });
 
-          if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join(" | ")}`);\n          await browser.close();
+          if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join(" | ")}`);
+          await browser.close();
           SCRIPT
           node jobready-smoke.mjs
       - uses: actions/upload-artifact@v4
