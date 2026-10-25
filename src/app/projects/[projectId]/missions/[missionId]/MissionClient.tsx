@@ -144,7 +144,7 @@ export function MissionPage({
     setMessage(complete ? "Mission progress saved." : "Mission reopened.");
   };
 
-  const useHint = async (hintNumber: number) => {
+  const recordHint = async (hintNumber: number) => {
     if (usedHints.has(hintNumber)) return;
     const next = new Set(usedHints);
     next.add(hintNumber);
@@ -232,7 +232,7 @@ export function MissionPage({
               <div style={{ marginTop: 16 }}>
                 {mission.hints.map((hint, index) => (
                   <details key={hint.label} style={{ borderTop: "1px solid var(--line)", padding: "14px 0" }} onToggle={(event) => {
-                    if ((event.currentTarget as HTMLDetailsElement).open) void useHint(index + 1);
+                    if ((event.currentTarget as HTMLDetailsElement).open) void recordHint(index + 1);
                   }}>
                     <summary style={{ cursor: "pointer", fontWeight: 750 }}>{index + 1}. {hint.label} {usedHints.has(index + 1) ? <span className="badge badge-muted" style={{ marginLeft: 8 }}>used</span> : null}</summary>
                     <p className="section-copy" style={{ fontSize: 14 }}>{hint.body}</p>
