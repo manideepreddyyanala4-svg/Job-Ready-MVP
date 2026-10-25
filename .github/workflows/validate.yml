@@ -64,21 +64,21 @@ jobs:
 
           fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
 
+          const runtimeErrors = [];
+          page.on("pageerror", (error) => runtimeErrors.push(error.message));
+
           await page.goto("http://127.0.0.1:3000/login", { waitUntil: "networkidle" });
           if (!(await page.getByRole("button", { name: /continue with demo account/i }).isVisible())) throw new Error("Demo login action is not visible");
           await page.screenshot({ path: "/tmp/jobready-screens/login-desktop.png", fullPage: true });
 
           await page.goto("http://127.0.0.1:3000/onboarding", { waitUntil: "networkidle" });
-          await page.getByRole("button", { name: /^continue/i }).click();
-          await page.getByRole("heading", { name: /choose the roles you are exploring/i }).waitFor();
-          await page.getByRole("button", { name: /^continue/i }).click();
-          await page.getByRole("heading", { name: /set a realistic weekly pace/i }).waitFor();
+          if (!(await page.getByRole("heading", { name: /start with your current profile/i }).isVisible())) throw new Error("Onboarding page did not render");
+          await page.screenshot({ path: "/tmp/jobready-screens/onboarding-desktop.png", fullPage: true });
 
           await page.goto("http://127.0.0.1:3000/resume", { waitUntil: "networkidle" });
           if (!(await page.getByRole("button", { name: /analyze resume/i }).isVisible())) throw new Error("Resume action is not visible");
 
           await page.goto("http://127.0.0.1:3000/analysis", { waitUntil: "networkidle" });
-
           await page.screenshot({ path: "/tmp/jobready-screens/analysis-desktop.png", fullPage: true });
 
           const cases = [
@@ -123,7 +123,7 @@ jobs:
           console.log(JSON.stringify({ viewport: "resume-mobile", overflow: resumeOverflow }));
           await page.screenshot({ path: "/tmp/jobready-screens/resume-mobile.png", fullPage: true });
 
-          await browser.close();
+          if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join(" | ")}`);\n          await browser.close();
           SCRIPT
           node jobready-smoke.mjs
       - uses: actions/upload-artifact@v4
