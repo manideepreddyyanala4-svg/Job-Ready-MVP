@@ -34,14 +34,19 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!production) {
-      setEmail(window.localStorage.getItem("jobready-user") ?? "demo account");
+      const localEmail = window.localStorage.getItem("jobready-user") ?? "demo account";
       const saved = window.localStorage.getItem("jobready-student-profile");
+      let localProfile: Profile | null = null;
       if (saved) {
         try {
-          const local = JSON.parse(saved) as { name?: string; degree?: string; college?: string; studyYear?: string; roles?: string[]; weeklyHours?: string };
-          setProfile({ full_name: local.name, degree: local.degree, college: local.college, year: local.studyYear, target_roles: local.roles });
+          const local = JSON.parse(saved) as { name?: string; degree?: string; college?: string; studyYear?: string; roles?: string[] };
+          localProfile = { full_name: local.name, degree: local.degree, college: local.college, year: local.studyYear, target_roles: local.roles };
         } catch { /* ignore */ }
       }
+      queueMicrotask(() => {
+        setEmail(localEmail);
+        setProfile(localProfile);
+      });
       return;
     }
 
