@@ -1,0 +1,107 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - prompt-2-ui-foundation
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  browser-smoke:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install browser smoke dependency
+        run: |
+          npm install --no-save --package-lock=false playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Start JobReady
+        run: |
+          npm run dev > /tmp/jobready-next.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:3000/login > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/jobready-next.log
+          exit 1
+      - name: Run responsive browser smoke
+        run: |
+          cat > /tmp/jobready-smoke.mjs <<'SCRIPT'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+
+          await page.goto("http://127.0.0.1:3000/login");
+          await page.getByRole("button", { name: /continue with demo account/i }).click();
+          await page.waitForURL("**/onboarding");
+          await page.getByRole("button", { name: /^continue/i }).click();
+          await page.getByRole("button", { name: /^continue/i }).click();
+          await page.getByRole("button", { name: /save profile and continue/i }).click();
+          await page.waitForURL("**/resume");
+          await page.getByRole("button", { name: /use demo resume/i }).click();
+          await page.waitForURL("**/analysis");
+
+          fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
+          await page.screenshot({ path: "/tmp/jobready-screens/analysis-desktop.png", fullPage: true });
+
+          const cases = [
+            { name: "desktop", width: 1440, height: 1000, expectMobile: false },
+            { name: "tablet", width: 768, height: 1024, expectMobile: false },
+            { name: "medium-mobile", width: 430, height: 932, expectMobile: true },
+            { name: "narrow-mobile", width: 360, height: 800, expectMobile: true },
+          ];
+
+          for (const item of cases) {
+            await page.setViewportSize({ width: item.width, height: item.height });
+            await page.goto("http://127.0.0.1:3000/dashboard");
+            await page.waitForLoadState("networkidle");
+            const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+            if (overflow) throw new Error(`Horizontal overflow at ${item.name}`);
+            const mobileNav = page.locator(".mobile-nav");
+            const sidebar = page.locator(".app-sidebar");
+            if (item.expectMobile) {
+              if (!(await mobileNav.isVisible())) throw new Error(`Mobile nav missing at ${item.name}`);
+              if (await sidebar.isVisible()) throw new Error(`Desktop sidebar visible at ${item.name}`);
+            } else {
+              if (!(await sidebar.isVisible())) throw new Error(`Desktop sidebar missing at ${item.name}`);
+            }
+            await page.screenshot({ path: `/tmp/jobready-screens/dashboard-${item.name}.png`, fullPage: true });
+          }
+
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.goto("http://127.0.0.1:3000/resume");
+          await page.waitForLoadState("networkidle");
+          await page.screenshot({ path: "/tmp/jobready-screens/resume-mobile.png", fullPage: true });
+
+          await browser.close();
+          SCRIPT
+          node /tmp/jobready-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jobready-ui-smoke
+          path: /tmp/jobready-screens
