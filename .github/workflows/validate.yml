@@ -25,6 +25,7 @@ jobs:
   browser-smoke:
     needs: validate
     runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.55.0-noble
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -32,21 +33,26 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Install browser smoke dependency
-        run: |
-          npm install --no-save --package-lock=false playwright@1.55.0
-          npx playwright install --with-deps chromium
+      - name: Install browser smoke package
+        run: npm install --no-save playwright@1.55.0
       - name: Start JobReady
         run: |
           npm run dev > /tmp/jobready-next.log 2>&1 &
-          for i in {1..40}; do
-            if curl -fsS http://127.0.0.1:3000/login > /dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/jobready-next.log
-          exit 1
+          node - <<'NODE'
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          for (let i = 0; i < 40; i++) {
+            try {
+              const response = await fetch("http://127.0.0.1:3000/login");
+              if (response.ok) process.exit(0);
+            } catch {}
+            await sleep(2000);
+          }
+          process.exit(1);
+          NODE
+          if [ $? -ne 0 ]; then
+            cat /tmp/jobready-next.log
+            exit 1
+          fi
       - name: Run responsive browser smoke
         run: |
           cat > /tmp/jobready-smoke.mjs <<'SCRIPT'
@@ -80,22 +86,35 @@ jobs:
             await page.setViewportSize({ width: item.width, height: item.height });
             await page.goto("http://127.0.0.1:3000/dashboard");
             await page.waitForLoadState("networkidle");
-            const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-            if (overflow) throw new Error(`Horizontal overflow at ${item.name}`);
+
+            const findings = await page.evaluate(() => ({
+              overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+              bodyWidth: document.documentElement.clientWidth,
+              scrollWidth: document.documentElement.scrollWidth,
+              minButtonHeight: Math.min(...Array.from(document.querySelectorAll(".btn")).map((node) => node.getBoundingClientRect().height)),
+            }));
+            if (findings.overflow) throw new Error(`Horizontal overflow at ${item.name}: ${findings.scrollWidth}px > ${findings.bodyWidth}px`);
+
             const mobileNav = page.locator(".mobile-nav");
             const sidebar = page.locator(".app-sidebar");
             if (item.expectMobile) {
               if (!(await mobileNav.isVisible())) throw new Error(`Mobile nav missing at ${item.name}`);
               if (await sidebar.isVisible()) throw new Error(`Desktop sidebar visible at ${item.name}`);
+              if (findings.minButtonHeight < 42) throw new Error(`Tap target too small at ${item.name}: ${findings.minButtonHeight}px`);
             } else {
               if (!(await sidebar.isVisible())) throw new Error(`Desktop sidebar missing at ${item.name}`);
             }
+
+            console.log(JSON.stringify({ viewport: item.name, ...findings, mobileNavVisible: await mobileNav.isVisible(), sidebarVisible: await sidebar.isVisible() }));
             await page.screenshot({ path: `/tmp/jobready-screens/dashboard-${item.name}.png`, fullPage: true });
           }
 
           await page.setViewportSize({ width: 390, height: 844 });
           await page.goto("http://127.0.0.1:3000/resume");
           await page.waitForLoadState("networkidle");
+          const resumeOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+          if (resumeOverflow) throw new Error("Resume page overflows on mobile");
+          console.log(JSON.stringify({ viewport: "resume-mobile", overflow: resumeOverflow }));
           await page.screenshot({ path: "/tmp/jobready-screens/resume-mobile.png", fullPage: true });
 
           await browser.close();
