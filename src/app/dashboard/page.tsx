@@ -69,7 +69,7 @@ export default function Dashboard() {
     const saved = window.localStorage.getItem("jobready-student-profile");
     let name = "";
     try { name = saved ? (JSON.parse(saved) as { name?: string }).name ?? "" : ""; } catch { /* ignore */ }
-    setState({
+    const nextState = {
       name,
       score: readinessScoreFromResume(local).total,
       topRole: "Backend / Software Engineer",
@@ -77,8 +77,11 @@ export default function Dashboard() {
       projectTitle: activeProject.title,
       completed: completedMissionCount(activeProject.id, activeProject.missions.map((mission) => mission.id)),
       hasResume: Boolean(resume),
+    };
+    queueMicrotask(() => {
+      setState(nextState);
+      setLoaded(true);
     });
-    setLoaded(true);
   }, []);
 
   if (!loaded) return <AppShell><div className="card" aria-busy="true">Building your next-action view…</div></AppShell>;
