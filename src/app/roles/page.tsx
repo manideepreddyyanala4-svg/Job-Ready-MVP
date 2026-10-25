@@ -32,9 +32,11 @@ export default function RolesPage() {
       return;
     }
     const local = loadStructuredResume<StructuredResume>() ?? demoResume;
-    setResume(local);
-    setScores(Object.fromEntries(roles.map((role) => [role.id, roleScoreFromResume(role.id, local)])));
-    setLoaded(true);
+    queueMicrotask(() => {
+      setResume(local);
+      setScores(Object.fromEntries(roles.map((role) => [role.id, roleScoreFromResume(role.id, local)])));
+      setLoaded(true);
+    });
   }, []);
 
   return (
