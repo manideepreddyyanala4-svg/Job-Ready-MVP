@@ -40,9 +40,11 @@ export default function Analysis() {
       return;
     }
     const local = loadStructuredResume<StructuredResume>() ?? demoResume;
-    setResume(local);
-    setScore(readinessScoreFromResume(local));
-    setLoaded(true);
+    queueMicrotask(() => {
+      setResume(local);
+      setScore(readinessScoreFromResume(local));
+      setLoaded(true);
+    });
   }, []);
 
   if (!loaded) return <AppShell><div className="card" aria-busy="true">Loading your latest readiness analysis…</div></AppShell>;
