@@ -69,6 +69,7 @@ export function MissionPage({
   useEffect(() => {
     const run = async () => {
       if (!production) {
+        window.localStorage.setItem("jobready-enrolled:" + projectId, "yes");
         setPaid(Boolean(window.localStorage.getItem("jobready-entitlement")));
         setDone(isMissionComplete(projectId, missionId));
         const hints = new Set<number>();
