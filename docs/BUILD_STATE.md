@@ -1,88 +1,237 @@
-# Build state
+# JobReady Build State
 
-## Current milestone
-Phase 23 — Paid-beta V1 Supabase verification
+This document classifies what the current branch actually provides.
 
-## Completed
-- Phase 0 repository audit
-- Phase 1 foundation and documentation
-- Phase 2 landing page and responsive visual system
-- Phase 3 domain model, role/project seeds, scoring helpers
-- Phases 5–12 demo funnel, analysis, gaps, projects, missions
-- Phase 13 mock payment entitlement flow
-- Phase 15 privacy and terms pages
-- Phase 16 analytics/payment provider abstractions
-- Phase 19 local release audit and settings/privacy controls
-- Demo mission progress persistence and dashboard continuation state
-- Resume input validation and demo resume readiness state
-- Persistent student profile and structured resume-backed readiness analysis
-- Resume-backed role matching and gap classification
-- Focused core-engine fixtures and automated tests
-- Deterministic controlled project recommendation engine
-- Data-driven project detail architecture/prerequisites summary
-- Structured mock payment transaction → entitlement API
-- Four-level local hint usage tracking
-- Supabase browser/server clients, production-mode middleware, authenticated profile API, private resume upload persistence, and server-side entitlement lookup architecture
-- Initial normalized Supabase migration with user ownership RLS policies
-- Razorpay webhook signature verification skeleton and typed funnel analytics events
-- Idempotent reference-data seed migration for roles, skills, project families, variants, and twelve backend missions
-- Authenticated production profile restoration and validation
-- Server-side deterministic analysis persistence for readiness, role matches, gaps, and recommendations
-- Server-only service-role writer for authoritative score persistence
-- Authenticated project enrollment and mission progress APIs
-- Production-mode mission progress restoration path
-- Production-mode analysis/profile/roles/gaps/recommendation/dashboard read paths now use authenticated Supabase APIs instead of localStorage
-- Logistics starter repository, structured rubric, hidden-test contract, and viva question bank
-- Paid mission progress API now verifies an active family entitlement for every non-free mission
-- Auth callback redirects are restricted to internal paths
-- Authoritative analysis now loads the persisted user-owned resume parse server-side; client payloads cannot choose score input
-- Server-rendered mission route now checks production entitlement before sending paid mission content to the browser
-- Secure mission-progress RPC migration added; paid writes are now enforced at the database boundary, not only in the API
-- Expanded Logistics mission content with tasks, deliverables, progressive hints, resources, and estimated time
-- Internal Logistics reference API added under `reference/logistics-order-api`; student starter remains intentionally incomplete
+## Public website
 
-## Known limitations
-- Supabase environment is configured and the live unauthenticated boundary returns HTTP 401.
-- Supabase Auth was exercised with two temporary confirmed test users; both signed in successfully and were cleaned up.
-- PDF processing is REAL for local text-based PDFs through the `/api/resume/process` server route, with deterministic extraction/parsing; scanned/image PDFs remain INCOMPLETE until OCR is added.
-- Browser/localStorage persistence is REAL LOCAL MVP only; it is never an authority for production access.
-- Full browser magic-link cross-session testing still requires an interactive mailbox or a manually supplied test link.
-- OCR for scanned/image PDFs remains INCOMPLETE.
-- Razorpay order creation and webhook deployment remain BLOCKED EXTERNALLY until credentials and dashboard configuration are supplied.
+**PRODUCTION REAL (frontend)**
 
-## State classification
-- REAL LOCAL MVP: browser/localStorage persistence, local validated PDF processing, structured resume parsing, deterministic readiness/role/gap scoring, controlled recommendations, route UI, and mock checkout transaction-to-entitlement flow.
-- PRODUCTION REAL: Supabase Auth, schema/reference data, private `resumes` bucket, authenticated upload, user-owned profile/resume parse/progress boundaries, and two-user RLS/Storage isolation were verified against the configured project. Database-enforced paid mission progress is supplied by migration 0003 and must be applied before deployment.
-- PRODUCTION ARCHITECTURE: deterministic analysis persistence, project enrollment, dashboard restoration, server-rendered paid-content gate, and Razorpay adapter.
-- MOCK: demo payment provider, analytics provider, and AI provider.
-- DEMO: seeded Arjun Reddy profile, demo resume, role/project content.
-- INCOMPLETE: applying migrations 0003 and 0004, full interactive mailbox-based cross-session browser test, OCR, and production Razorpay order/webhook wiring.
+- complete landing mechanism
+- no fake social proof
+- honest role/project scope
+- beta pricing explanation
+- privacy/terms
+- metadata/robots
+- responsive design system
 
-## Validation
-- `npm install` completed.
-- `npm run lint` passes.
-- `npm run typecheck` passes.
-- Browser smoke test passed through landing, demo login, all onboarding steps, demo resume analysis, Mission 2 paywall, mock checkout, and entitlement restoration after refresh.
-- All current MVP routes return HTTP 200, including settings, privacy, and terms.
-- Mission completion persists in browser storage and is reflected on the dashboard after navigation.
-- Resume flow rejects non-PDF and over-5 MB files, supports a clear demo-resume action, and records analysis readiness locally.
-- Resume uploads are sent to and processed by the server API; structured resume data is persisted locally and analysis derives from that structure.
-- Browser smoke test confirmed the demo resume creates structured local state and routes to analysis with a derived score.
-- Role and gap pages now recalculate from the persisted structured resume evidence.
-- Direct API smoke test passed for a text-based PDF fixture; invalid empty requests return a clear 400 response.
-- `npm test` passes: 5 focused core-engine tests across parsing, scoring, role matching, evidence classification, and recommendations.
-- `npm run build` passes successfully after dependency repair.
-- Complete route smoke test returns HTTP 200 for all V0 pages.
-- Browser smoke test passed through recommendation, project detail, Mission 1 completion, Mission 2 paywall, mock unlock, and dashboard progress reflection.
-- `npm audit --omit=optional` reports 8 vulnerabilities (1 moderate, 5 high, 2 critical), primarily in dev tooling; automatic force upgrades were not applied.
-- Local browser regression passed landing/login/onboarding/demo resume/analysis after the production wiring changes.
-- `npm test` passes: 8 tests across core engines and production-boundary validation.
-- `npm run lint`, `npm run typecheck`, and `npm run build` pass.
-- `npm audit` reports 8 vulnerabilities (1 moderate, 5 high, 2 critical); fixes require breaking upgrades and `npm audit fix --force` was not run.
-- Live production endpoint check: unauthenticated entitlement request returned HTTP 401.
-- Live Supabase check: roles (3), skills (15), role requirements (21), project families (3), variants (4), and Logistics missions (12) are present; `resumes` exists and is private.
-- Live two-user check: authenticated upload succeeded, foreign Storage download was denied, foreign profile/resume/progress reads returned no rows, and cleanup succeeded.
-- Security review completed; paid-progress authorization is now enforced through a database RPC migration, callback URL normalization is origin-checked, and client-selected score input remains rejected.
+Production hosting/domain is external.
 
-## Next action
-Apply migrations `0003_secure_mission_progress.sql` and `0004_mission_content.sql` in the configured Supabase SQL editor, then run the interactive mailbox-based cross-session test. Razorpay remains intentionally deferred until its credentials and webhook URL are available.
+## Authentication
+
+**PRODUCTION ARCHITECTURE / BLOCKED EXTERNALLY**
+
+Code:
+- Supabase magic-link sign-in
+- callback exchange
+- safe internal redirect handling
+- protected route middleware
+- session-based server reads
+- logout
+
+Requires external verification:
+- Supabase project credentials
+- production redirect URLs
+- real mailbox sign-in test
+
+## Onboarding
+
+**PRODUCTION REAL once Supabase migration state is ready**
+
+- 3 steps
+- only recommendation-relevant data
+- multi-role UI
+- legacy fallback if target_roles column is not available
+
+Migration 0005 adds persisted target-role array.
+
+## Resume
+
+**REAL LOCAL MVP + PRODUCTION STORAGE ARCHITECTURE**
+
+Implemented:
+- PDF / 5 MB limit
+- MIME + extension + PDF signature validation
+- text extraction
+- parse confidence/warnings
+- review-before-report UI
+- private user-scoped storage path
+- current resume metadata
+- remove resume flow
+- raw extracted text omitted from structured parse
+
+Limit:
+- deterministic parser is basic
+- scanned/image resumes unsupported
+- parsing is not claimed to be perfect
+
+## Readiness / roles / gaps
+
+**PRODUCTION REAL deterministic engine**
+
+- explainable readiness score
+- score dimensions
+- role fit
+- role-specific evidence gaps
+- evidence-vs-knowledge copy
+- persisted v2 production analysis
+
+Limit:
+- current rubric is early-beta and must be calibrated with real review data
+- score is not hiring probability
+
+## Project recommendations
+
+**PRODUCTION REAL for validated catalog entries**
+
+Current:
+- backend project may be recommended
+- planned Data / AI project families are not emitted as fake recommendations
+
+## Project catalog
+
+**PRODUCTION ARCHITECTURE**
+
+Hierarchy supports:
+- track
+- family
+- controlled variant
+
+Available now:
+- logistics backend
+
+Planned:
+- retail analytics
+- document intelligence
+
+## Project / mission UX
+
+**REAL LOCAL MVP + PRODUCTION ARCHITECTURE**
+
+Logistics:
+- 12 missions
+- mission brief/tasks/deliverables
+- acceptance criteria
+- progressive hints
+- verification guidance
+- progress
+- deployment mission
+- project defense
+
+Production paid content depends on migration 0005 and entitlement state.
+
+## Verification
+
+**PRODUCTION ARCHITECTURE / INCOMPLETE AUTOMATION**
+
+Real:
+- rubric
+- transparent acceptance criteria
+- reference/starter tests
+- evidence expectations
+- defense questions
+
+Not real yet:
+- remote hidden execution against student repositories
+- automatic deployment checks
+- artifact ingestion/verifier service
+
+UI does not fake these states.
+
+## Paid content security
+
+**PRODUCTION ARCHITECTURE; EXTERNAL MIGRATION VERIFICATION REQUIRED**
+
+Code:
+- summary/detail split
+- server entitlement gate
+- trusted project registry
+- secure progress RPC
+- migration 0005 entitlement-aware mission RLS
+- mock payment disabled in production
+
+Critical blocker:
+- repository is public and contains proprietary reference/internal material
+
+## Dashboard
+
+**PRODUCTION REAL once persisted data exists**
+
+Shows:
+- next action
+- readiness snapshot
+- role direction
+- top gaps
+- project progress
+
+## Settings
+
+**PRODUCTION ARCHITECTURE**
+
+- account state
+- career profile link
+- resume management
+- privacy/terms
+- account deletion request
+
+Deletion request processing worker/admin operation is not implemented.
+
+## Payments
+
+Demo:
+**REAL LOCAL MVP**
+
+Production:
+**INCOMPLETE / BLOCKED EXTERNALLY**
+
+- Razorpay credential placeholders exist
+- signature verifier exists
+- real order creation/webhook entitlement activation is not enabled
+- production UI fails closed
+
+## Analytics
+
+**PRODUCTION ARCHITECTURE**
+
+- funnel taxonomy
+- property sanitizer
+- provider neutral
+- no external provider configured
+
+## Mobile/accessibility
+
+**PRODUCTION REAL frontend**
+
+Implemented:
+- responsive app navigation
+- no intentional horizontal tables
+- visible focus states
+- semantic buttons/links/labels
+- mobile layouts
+- reduced-motion support
+- accessible error/status roles
+
+Requires final screenshot/browser review from CI on every significant design change.
+
+## Repository hygiene
+
+**IMPROVED**
+
+Removed from tracked head:
+- Python bytecode caches
+- local reference SQLite database
+
+Ignored:
+- caches
+- local databases
+- build outputs
+- secrets/environment files except safe example
+
+Reference source remains intentionally present until repository visibility is corrected.
+
+## Database migration status
+
+Files 0001–0005 exist in code.
+
+**Production application status: UNVERIFIED FROM THIS REPOSITORY.**
+
+Do not change this wording without checking the external Supabase project.
