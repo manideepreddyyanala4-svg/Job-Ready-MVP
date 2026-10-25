@@ -1,72 +1,186 @@
 "use client";
 
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { demoResume, StructuredResume } from "@/lib/resume";
+import { AppShell, PageTitle } from "@/components/AppShell";
+import { demoResume, MAX_RESUME_BYTES, StructuredResume } from "@/lib/resume";
 import { saveStructuredResume } from "@/lib/demo-storage";
 
-export default function Resume() {
+type ResumeMeta = { id: string; original_filename: string; byte_size: number; created_at: string };
+
+const production = process.env.NEXT_PUBLIC_JOBREADY_MODE === "production";
+
+export default function ResumePage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [selectedName, setSelectedName] = useState("");
+  const [parsed, setParsed] = useState<StructuredResume | null>(null);
+  const [latest, setLatest] = useState<ResumeMeta | null>(null);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!production) return;
+    void fetch("/api/resume")
+      .then((response) => response.json())
+      .then((result: { resume?: ResumeMeta | null }) => setLatest(result.resume ?? null))
+      .catch(() => undefined);
+  }, []);
 
   const selectResume = (event: ChangeEvent<HTMLInputElement>) => {
     const nextFile = event.target.files?.[0] ?? null;
     setError("");
+    setNotice("");
+    setParsed(null);
+    if (!nextFile) { setFile(null); return; }
+    if (!nextFile.name.toLowerCase().endsWith(".pdf") || nextFile.type !== "application/pdf") {
+      setFile(null);
+      setError("Choose an exported PDF resume.");
+      return;
+    }
+    if (nextFile.size > MAX_RESUME_BYTES) {
+      setFile(null);
+      setError("Resume files must be 5 MB or smaller.");
+      return;
+    }
     setFile(nextFile);
-    setSelectedName(nextFile?.name ?? "");
   };
 
-  const saveAndAnalyze = (resume: StructuredResume) => {
-    if (process.env.NEXT_PUBLIC_JOBREADY_MODE !== "production") {
-      saveStructuredResume(resume);
+  const analyze = async () => {
+    setError("");
+    setNotice("");
+    if (!file) { setError("Choose a PDF before continuing."); return; }
+    setProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+      const response = await fetch("/api/resume/process", { method: "POST", body: formData });
+      const result = await response.json() as { ok: boolean; resume?: StructuredResume; message?: string };
+      if (!response.ok || !result.ok || !result.resume) {
+        setError(result.message ?? "The resume could not be processed.");
+        return;
+      }
+      if (!production) saveStructuredResume(result.resume);
+      setParsed(result.resume);
+      setNotice("Resume processed. Review what JobReady detected before opening the report.");
+      if (production) {
+        const latestResponse = await fetch("/api/resume");
+        const latestResult = await latestResponse.json() as { resume?: ResumeMeta | null };
+        setLatest(latestResult.resume ?? null);
+      }
+    } catch {
+      setError("We could not process the resume. Check your connection and try again.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const useDemo = () => {
+    saveStructuredResume(demoResume);
+    setParsed(demoResume);
+    setFile(null);
+    setError("");
+    setNotice("Demo resume loaded. The report will be clearly labeled as demo evidence.");
+  };
+
+  const continueToAnalysis = () => {
+    if (!parsed) return;
+    if (!production) {
+      saveStructuredResume(parsed);
       window.localStorage.setItem("jobready-resume-ready", "yes");
     }
     router.push("/analysis");
   };
 
-  const analyze = async () => {
+  const removeLatest = async () => {
+    if (!production || !latest) return;
+    setDeleting(true);
     setError("");
-    if (!file) {
-      setError("Choose a PDF or select the demo resume before continuing.");
-      return;
-    }
-    setProcessing(true);
-    const formData = new FormData();
-    formData.append("resume", file);
-    const response = await fetch("/api/resume/process", { method: "POST", body: formData });
-    const result = await response.json() as { ok: boolean; resume?: StructuredResume; message?: string };
-    setProcessing(false);
-    if (!response.ok || !result.ok || !result.resume) {
-      setError(result.message ?? "The resume could not be processed.");
-      return;
-    }
-    saveAndAnalyze(result.resume);
+    const response = await fetch("/api/resume?resumeId=" + encodeURIComponent(latest.id), { method: "DELETE" });
+    setDeleting(false);
+    if (!response.ok) { setError("The resume could not be removed. Try again."); return; }
+    setLatest(null);
+    setParsed(null);
+    setNotice("Resume removed. Upload a new resume to create a fresh report.");
   };
 
-  const useDemoResume = () => {
-    saveAndAnalyze(demoResume);
-  };
+  return (
+    <AppShell>
+      <PageTitle
+        eyebrow="Resume evidence"
+        title="Add the profile evidence you want JobReady to inspect."
+        body="JobReady extracts structured signals from a text-based PDF. Parsing is not perfect, and a missing item never means you do not know it."
+        actions={<span className="badge badge-muted">PDF · maximum 5 MB</span>}
+      />
 
-  return <AppShell><main className="container" style={{ padding: "64px 0", maxWidth: 760 }}>
-    <div className="eyebrow">Your evidence baseline</div>
-    <h1 className="serif" style={{ fontSize: 54, margin: "10px 0 14px" }}>Add your resume.</h1>
-    <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>We extract structure first, then score evidence. Missing text never means missing knowledge.</p>
-    <div className="card" style={{ padding: 36, marginTop: 30, textAlign: "center", borderStyle: "dashed" }}>
-      <div style={{ fontSize: 44 }}>↑</div>
-      <h3>Choose a PDF resume</h3>
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>PDF only · up to 5 MB · private by default</p>
-      <input type="file" accept=".pdf,application/pdf" onChange={selectResume} style={{ margin: "16px auto", display: "block" }} />
-      {selectedName && <p className="tag" style={{ margin: "8px auto 16px", width: "fit-content" }}>{selectedName}</p>}
-      {error && <p role="alert" style={{ color: "#b23b2e", fontSize: 13 }}>{error}</p>}
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn btn-ghost" onClick={useDemoResume}>Use demo resume</button>
-        <button type="button" className="btn btn-primary" onClick={analyze} disabled={processing}>{processing ? "Extracting resume…" : "Analyze resume →"}</button>
+      {latest && (
+        <div className="card card-soft" style={{ marginBottom: 18 }}>
+          <div className="split mobile-stack">
+            <div><strong>Current resume</strong><p className="small muted" style={{ margin: "5px 0 0" }}>{latest.original_filename} · uploaded {new Date(latest.created_at).toLocaleDateString()}</p></div>
+            <button className="btn btn-danger" onClick={removeLatest} disabled={deleting}>{deleting ? "Removing…" : "Remove current resume"}</button>
+          </div>
+        </div>
+      )}
+
+      <div className="two-col">
+        <section className="card">
+          <div className="eyebrow">1 · Upload</div>
+          <h2 style={{ margin: "10px 0 8px" }}>Choose a text-based PDF resume.</h2>
+          <p className="small muted">Scanned or image-only PDFs are not supported in this beta. Your production file is stored in a private user-scoped bucket.</p>
+          <label className="field" style={{ marginTop: 22 }}>
+            <span className="field-label">Resume PDF</span>
+            <input className="input" type="file" accept=".pdf,application/pdf" onChange={selectResume} />
+            <span className="field-help">{file ? file.name + " · " + Math.ceil(file.size / 1024) + " KB" : "No file selected."}</span>
+          </label>
+          <div className="cluster actions" style={{ marginTop: 18 }}>
+            <button type="button" className="btn btn-primary" onClick={analyze} disabled={!file || processing}>{processing ? "Processing…" : "Process resume →"}</button>
+            {!production && <button type="button" className="btn btn-secondary" onClick={useDemo}>Use demo resume</button>}
+          </div>
+          {error && <div className="alert alert-error" role="alert" style={{ marginTop: 16 }}>{error}</div>}
+          {notice && <div className="alert alert-success" role="status" style={{ marginTop: 16 }}>{notice}</div>}
+        </section>
+
+        <aside className="card card-soft">
+          <div className="eyebrow">Privacy boundary</div>
+          <h3 style={{ margin: "10px 0" }}>What happens after upload</h3>
+          <div className="evidence-list">
+            {[
+              "Validate the file type and size.",
+              "Extract deterministic text structure on the server.",
+              "Store only structured evidence used by the report; raw extracted text is not kept in the structured parse.",
+              "Create an explainable readiness report and role fit.",
+              "Keep raw resume contents out of product analytics.",
+            ].map((item) => <div className="evidence-item" key={item}><span className="evidence-icon">✓</span><span>{item}</span></div>)}
+          </div>
+        </aside>
       </div>
-    </div>
-    <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 18 }}>{process.env.NEXT_PUBLIC_JOBREADY_MODE === "production" ? "Your PDF and structured analysis are stored in your authenticated Supabase account." : "Uploads are processed deterministically in this local MVP. Production storage and authenticated server processing are adapter-ready."}</p>
-  </main></AppShell>;
+
+      {parsed && (
+        <section className="card" style={{ marginTop: 18 }}>
+          <div className="split mobile-stack">
+            <div>
+              <div className="eyebrow">2 · Review detected evidence</div>
+              <h2 style={{ margin: "9px 0 6px" }}>{parsed.fileName}</h2>
+            </div>
+            <span className={"badge " + (parsed.parseConfidence === "high" ? "badge-success" : parsed.parseConfidence === "medium" ? "badge-warning" : "badge-danger")}>{parsed.parseConfidence} parse confidence</span>
+          </div>
+          {parsed.warnings.length > 0 && <div className="alert alert-warning" style={{ marginTop: 16 }}>{parsed.warnings.join(" ")}</div>}
+          <div className="three-col" style={{ marginTop: 20 }}>
+            <div className="metric-card"><div className="metric-value">{parsed.skills.length}</div><div className="metric-label">Detected skills</div></div>
+            <div className="metric-card"><div className="metric-value">{parsed.projects.length}</div><div className="metric-label">Detected project signals</div></div>
+            <div className="metric-card"><div className="metric-value">{parsed.links.length}</div><div className="metric-label">Detected links</div></div>
+          </div>
+          <div className="two-col" style={{ marginTop: 20 }}>
+            <div><strong>Skills detected</strong><div className="cluster" style={{ marginTop: 10 }}>{parsed.skills.length ? parsed.skills.map((skill) => <span className="tag" key={skill}>{skill}</span>) : <span className="small muted">No supported skills confidently detected.</span>}</div></div>
+            <div><strong>Project evidence</strong><div className="stack" style={{ marginTop: 10 }}>{parsed.projects.length ? parsed.projects.map((project) => <div className="small muted" key={project}>{project}</div>) : <span className="small muted">No project section confidently detected.</span>}</div></div>
+          </div>
+          <div className="cluster actions" style={{ marginTop: 24 }}>
+            <button className="btn btn-dark" onClick={continueToAnalysis}>Open readiness report →</button>
+            <label className="btn btn-secondary" style={{ cursor: "pointer" }}>Choose another PDF<input className="sr-only" type="file" accept=".pdf,application/pdf" onChange={selectResume} /></label>
+          </div>
+        </section>
+      )}
+    </AppShell>
+  );
 }

@@ -1,35 +1,112 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell, PageTitle } from "@/components/AppShell";
-import { readinessScore, readinessScoreFromResume } from "@/lib/domain";
+import { readinessLevel, readinessScoreFromResume } from "@/lib/domain";
 import { loadStructuredResume } from "@/lib/demo-storage";
-import { StructuredResume } from "@/lib/resume";
+import { demoResume, StructuredResume } from "@/lib/resume";
+
+type Score = { total: number; categories: [string, number][] };
+
+const dimensionCopy: Record<string, string> = {
+  "Technical foundations": "Breadth of core technical evidence detected in your profile.",
+  "Role-relevant skills": "How much of the supported early-career role skill pattern is visible.",
+  "Project quality": "Whether there is enough project evidence to inspect, not whether a title sounds impressive.",
+  "Production evidence": "Testing, data layer, deployment, containers, and other evidence beyond localhost.",
+  "Resume clarity": "Whether the parser can find structured skills or project evidence clearly.",
+  "Proof of work": "Projects, links, and experience that give a reviewer something concrete to inspect.",
+};
+
+const production = process.env.NEXT_PUBLIC_JOBREADY_MODE === "production";
 
 export default function Analysis() {
-  const [score, setScore] = useState(readinessScore());
-  const [source, setSource] = useState<"demo" | "upload">("demo");
+  const [score, setScore] = useState<Score | null>(null);
+  const [resume, setResume] = useState<StructuredResume | null>(null);
+  const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_JOBREADY_MODE === "production") {
+    if (production) {
       void fetch("/api/analysis")
-        .then((response) => response.json())
-        .then((result: { readiness?: { score: number; breakdown: [string, number][] }; resume?: StructuredResume | null }) => {
+        .then(async (response) => {
+          const result = await response.json() as { readiness?: { score: number; breakdown: [string, number][] }; resume?: StructuredResume | null; message?: string };
+          if (!response.ok) throw new Error(result.message ?? "Analysis could not be loaded.");
           if (result.readiness) setScore({ total: result.readiness.score, categories: result.readiness.breakdown });
-          if (result.resume?.source) setSource(result.resume.source);
+          setResume(result.resume ?? null);
         })
-        .catch(() => undefined);
+        .catch(() => setError("We could not load the latest readiness analysis."))
+        .finally(() => setLoaded(true));
       return;
     }
-    const timer = window.setTimeout(() => {
-      const resume = loadStructuredResume<StructuredResume>();
-      if (resume) {
-        setScore(readinessScoreFromResume(resume));
-        setSource(resume.source);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
+    const local = loadStructuredResume<StructuredResume>() ?? demoResume;
+    setResume(local);
+    setScore(readinessScoreFromResume(local));
+    setLoaded(true);
   }, []);
 
-  return <AppShell><main className="container" style={{ padding: "54px 0" }}><PageTitle eyebrow={`Analysis · ${source === "demo" ? "demo resume" : "uploaded resume"}`} title="Your profile has a solid start. Now make it believable." body="This report scores visible evidence across the things an early-career engineer is expected to explain. It does not predict hiring outcomes." /><div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}><div className="card" style={{ padding: 28, display: "flex", alignItems: "center", gap: 24 }}><div style={{ width: 130, height: 130, borderRadius: "50%", display: "grid", placeItems: "center", background: "#eaf4f1", border: "13px solid #f2ad72", fontSize: 42, fontWeight: 800 }}>{score.total}</div><div><b style={{ fontSize: 18 }}>Job Readiness Score</b><p style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: 14 }}>A deterministic baseline for evidence visible in the structured profile.</p></div></div><div className="card" style={{ padding: 28 }}><h3 style={{ marginTop: 0 }}>How to read this</h3><p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>A strong score means evidence is visible. A low score can mean either a knowledge gap or simply an evidence gap. We keep those separate.</p><span className="tag">Evidence, not probability</span></div></div><div className="card" style={{ padding: 28, marginTop: 18 }}><h3 style={{ marginTop: 0 }}>Score breakdown</h3>{score.categories.map(([label, value]) => <div key={label} style={{ margin: "22px 0" }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>{label}</span><span>{value}/100</span></div><div style={{ height: 10, background: "#e5ece8", borderRadius: 10, marginTop: 8 }}><div style={{ width: `${value}%`, height: "100%", background: value < 50 ? "var(--orange)" : "var(--navy)", borderRadius: 10 }} /></div></div>)}</div></main></AppShell>;
+  if (!loaded) return <AppShell><div className="card" aria-busy="true">Loading your latest readiness analysis…</div></AppShell>;
+
+  if (!score) {
+    return (
+      <AppShell>
+        <PageTitle eyebrow="Readiness overview" title="Create your evidence baseline first." body="A readiness report needs a processed resume before JobReady can explain strengths and gaps." />
+        {error && <div className="alert alert-error" role="alert">{error}</div>}
+        <div className="empty-state"><div className="empty-icon">↑</div><h2>Upload a resume to build the report.</h2><p className="section-copy" style={{ margin: "0 auto 20px" }}>JobReady will show an explainable profile-readiness score—not a hiring probability.</p><Link href="/resume" className="btn btn-primary">Add resume →</Link></div>
+      </AppShell>
+    );
+  }
+
+  const lowest = [...score.categories].sort((a, b) => a[1] - b[1])[0];
+
+  return (
+    <AppShell>
+      <PageTitle
+        eyebrow={"Readiness overview · " + (resume?.source === "demo" ? "demo evidence" : "uploaded resume")}
+        title="See what your profile proves—and what it still needs to prove."
+        body="This deterministic score describes evidence visible in your structured profile. It is not your probability of getting hired."
+        actions={<Link href="/resume" className="btn btn-secondary">Replace resume</Link>}
+      />
+
+      {error && <div className="alert alert-error" role="alert" style={{ marginBottom: 18 }}>{error}</div>}
+
+      <div className="two-col">
+        <section className="card">
+          <div className="split mobile-stack">
+            <div className="score-ring" style={{ "--score": score.total } as React.CSSProperties}><strong>{score.total}<small>/100</small></strong></div>
+            <div style={{ flex: 1 }}>
+              <span className="badge badge-warm">{readinessLevel(score.total)}</span>
+              <h2 style={{ margin: "12px 0 8px" }}>Profile-readiness score</h2>
+              <p className="section-copy" style={{ margin: 0 }}>The number is a compact summary. The useful part is the breakdown and the next evidence action.</p>
+            </div>
+          </div>
+        </section>
+
+        <aside className="card card-soft">
+          <div className="eyebrow">Highest-value next move</div>
+          <h2 style={{ margin: "10px 0 8px" }}>Improve {lowest?.[0]?.toLowerCase() ?? "your weakest evidence area"}.</h2>
+          <p className="small muted">Your lowest current dimension is {lowest?.[0]} at {lowest?.[1]}/100. Use the gaps screen to see which evidence can be closed together.</p>
+          <Link href="/gaps" className="btn btn-dark" style={{ marginTop: 10 }}>See evidence gaps →</Link>
+        </aside>
+      </div>
+
+      <section className="card" style={{ marginTop: 18 }}>
+        <div className="eyebrow">Score breakdown</div>
+        <h2 style={{ margin: "10px 0 6px" }}>Why the score looks like this</h2>
+        <p className="small muted">Scores are intentionally broad. A few resume signals should not create fake precision.</p>
+        <div className="stack" style={{ marginTop: 22 }}>
+          {score.categories.map(([label, value]) => (
+            <div key={label}>
+              <div className="split"><div><strong>{label}</strong><span className="small muted" style={{ display: "block", marginTop: 3 }}>{dimensionCopy[label] ?? "Evidence detected in this profile dimension."}</span></div><strong>{value}/100</strong></div>
+              <div className="progress-track" style={{ marginTop: 9 }}><div className={"progress-fill " + (value < 50 ? "progress-fill-accent" : "")} style={{ width: value + "%" }} /></div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="alert alert-info" style={{ marginTop: 18 }}>
+        <strong>Important:</strong>&nbsp; A low dimension can mean a real knowledge gap, weak proof, or incomplete parsing. JobReady uses the gaps screen to keep “not evidenced” separate from “you do not know this.”
+      </div>
+    </AppShell>
+  );
 }
