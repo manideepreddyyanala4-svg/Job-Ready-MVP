@@ -56,7 +56,17 @@ export async function PATCH(request: Request) {
 
   let result = await auth.client!.from("profiles").upsert(values).select().single();
   if (result.error && /target_roles/i.test(result.error.message)) {
-    const { target_roles: _targetRoles, ...legacyValues } = values;
+    const legacyValues = {
+      id: values.id,
+      full_name: values.full_name,
+      college: values.college,
+      degree: values.degree,
+      year: values.year,
+      target_role: values.target_role,
+      weekly_hours: values.weekly_hours,
+      onboarding_completed: values.onboarding_completed,
+      updated_at: values.updated_at,
+    };
     result = await auth.client!.from("profiles").upsert(legacyValues).select().single();
   }
   if (result.error) return NextResponse.json({ ok: false, message: "Profile could not be saved." }, { status: 502 });
