@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -14,19 +14,22 @@ function safeNext(value: string | null) {
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [notice, setNotice] = useState<Notice>(() => {
-    if (typeof window === "undefined") return null;
-    const error = new URLSearchParams(window.location.search).get("error");
-    if (error === "auth_callback") return { kind: "error", message: "That sign-in link could not be completed. Request a new secure link below." };
-    if (error === "configuration") return { kind: "error", message: "Sign-in is temporarily unavailable because this environment is not fully configured." };
-    return null;
-  });
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
   const production = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
     process.env.NEXT_PUBLIC_JOBREADY_MODE === "production",
   );
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (!error) return;
+    queueMicrotask(() => {
+      if (error === "auth_callback") setNotice({ kind: "error", message: "That sign-in link could not be completed. Request a new secure link below." });
+      if (error === "configuration") setNotice({ kind: "error", message: "Sign-in is temporarily unavailable because this environment is not fully configured." });
+    });
+  }, []);
 
   const submit = async () => {
     const cleanEmail = email.trim().toLowerCase();
