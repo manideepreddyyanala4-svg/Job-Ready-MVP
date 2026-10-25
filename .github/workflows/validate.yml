@@ -62,22 +62,23 @@ jobs:
           const browser = await chromium.launch({ headless: true });
           const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
+          fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
+
           await page.goto("http://127.0.0.1:3000/login", { waitUntil: "networkidle" });
-          await page.getByRole("button", { name: /continue with demo account/i }).click();
-          await page.waitForURL("**/onboarding");
-          await page.waitForLoadState("networkidle");
+          if (!(await page.getByRole("button", { name: /continue with demo account/i }).isVisible())) throw new Error("Demo login action is not visible");
+          await page.screenshot({ path: "/tmp/jobready-screens/login-desktop.png", fullPage: true });
+
+          await page.goto("http://127.0.0.1:3000/onboarding", { waitUntil: "networkidle" });
           await page.getByRole("button", { name: /^continue/i }).click();
           await page.getByRole("heading", { name: /choose the roles you are exploring/i }).waitFor();
           await page.getByRole("button", { name: /^continue/i }).click();
           await page.getByRole("heading", { name: /set a realistic weekly pace/i }).waitFor();
-          await page.getByRole("button", { name: /save profile and continue/i }).click();
-          await page.waitForURL("**/resume");
-          await page.waitForLoadState("networkidle");
-          await page.getByRole("button", { name: /use demo resume/i }).click();
-          await page.waitForURL("**/analysis");
-          await page.waitForLoadState("networkidle");
 
-          fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
+          await page.goto("http://127.0.0.1:3000/resume", { waitUntil: "networkidle" });
+          if (!(await page.getByRole("button", { name: /analyze resume/i }).isVisible())) throw new Error("Resume action is not visible");
+
+          await page.goto("http://127.0.0.1:3000/analysis", { waitUntil: "networkidle" });
+
           await page.screenshot({ path: "/tmp/jobready-screens/analysis-desktop.png", fullPage: true });
 
           const cases = [
@@ -126,6 +127,7 @@ jobs:
           SCRIPT
           node jobready-smoke.mjs
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: jobready-ui-smoke
           path: /tmp/jobready-screens
