@@ -93,12 +93,17 @@ jobs:
             await page.goto("http://127.0.0.1:3000/dashboard");
             await page.waitForLoadState("networkidle");
 
-            const findings = await page.evaluate(() => ({
-              overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-              bodyWidth: document.documentElement.clientWidth,
-              scrollWidth: document.documentElement.scrollWidth,
-              minButtonHeight: Math.min(...Array.from(document.querySelectorAll(".btn")).map((node) => node.getBoundingClientRect().height)),
-            }));
+            const findings = await page.evaluate(() => {
+              const visibleButtonHeights = Array.from(document.querySelectorAll(".btn"))
+                .map((node) => node.getBoundingClientRect().height)
+                .filter((height) => height > 0);
+              return {
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                bodyWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                minButtonHeight: visibleButtonHeights.length ? Math.min(...visibleButtonHeights) : null,
+              };
+            });
             if (findings.overflow) throw new Error(`Horizontal overflow at ${item.name}: ${findings.scrollWidth}px > ${findings.bodyWidth}px`);
 
             const mobileNav = page.locator(".mobile-nav");
@@ -106,7 +111,7 @@ jobs:
             if (item.expectMobile) {
               if (!(await mobileNav.isVisible())) throw new Error(`Mobile nav missing at ${item.name}`);
               if (await sidebar.isVisible()) throw new Error(`Desktop sidebar visible at ${item.name}`);
-              if (findings.minButtonHeight < 42) throw new Error(`Tap target too small at ${item.name}: ${findings.minButtonHeight}px`);
+              if (findings.minButtonHeight !== null && findings.minButtonHeight < 42) throw new Error(`Tap target too small at ${item.name}: ${findings.minButtonHeight}px`);
             } else {
               if (!(await sidebar.isVisible())) throw new Error(`Desktop sidebar missing at ${item.name}`);
             }
