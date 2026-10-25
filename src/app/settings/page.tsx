@@ -2,50 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AppShell, PageTitle } from "@/components/AppShell";
+import { AppShell } from "@/components/AppShell";
+import { Alert, Badge, Button, Card, PageHeader, SectionHeader } from "@/components/ui";
 
 export default function Settings() {
   const router = useRouter();
+  const clearDemoData = () => { window.localStorage.clear(); router.push("/"); };
+  const production = process.env.NEXT_PUBLIC_JOBREADY_MODE === "production";
 
-  const clearDemoData = () => {
-    window.localStorage.clear();
-    router.push("/");
-  };
-
-  return (
-    <AppShell>
-      <main className="container" style={{ padding: "54px 0", maxWidth: 820 }}>
-        <PageTitle
-          eyebrow="Account & privacy"
-          title="Your data, on your terms."
-          body="This demo keeps progress in your browser. Production accounts will use user-owned Supabase records with deletion and export workflows."
-        />
-        <div className="grid">
-          <section className="card" style={{ padding: 26 }}>
-            <h2 style={{ marginTop: 0, fontSize: 22 }}>Demo account</h2>
-            <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>arjun@example.com</p>
-            <span className="tag">Local demo mode</span>
-          </section>
-          <section className="card" style={{ padding: 26 }}>
-            <h2 style={{ marginTop: 0, fontSize: 22 }}>Privacy controls</h2>
-            <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>
-              Your demo profile, onboarding marker, and project entitlement are stored only in this browser. No resume file is uploaded by the demo flow.
-            </p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-ghost" onClick={clearDemoData}>Delete local demo data</button>
-              <Link className="btn btn-dark" href="/privacy">Read privacy policy</Link>
-            </div>
-          </section>
-          <section className="card" style={{ padding: 26 }}>
-            <h2 style={{ marginTop: 0, fontSize: 22 }}>Production readiness</h2>
-            <ul style={{ color: "var(--muted)", lineHeight: 1.8, paddingLeft: 20 }}>
-              <li>Supabase Auth and row ownership policies</li>
-              <li>Server-side resume deletion and export request</li>
-              <li>Verified Razorpay entitlements, never client-only unlocks</li>
-            </ul>
-          </section>
-        </div>
-      </main>
-    </AppShell>
-  );
+  return <AppShell><main className="app-page app-page-narrow"><PageHeader eyebrow="Account" title="Profile and settings." description="Review the account mode, resume entry point, and privacy controls available in this build." />
+    <div className="stack">
+      <Card className="card-pad"><SectionHeader title={production ? "Authenticated account" : "Demo account"} /><p className="secondary-text">{production ? "Your profile and progress are stored in your authenticated account." : "arjun@example.com · progress is stored locally in this browser."}</p><Badge tone={production ? "success" : "info"}>{production ? "Production mode" : "Local demo mode"}</Badge></Card>
+      <Card className="card-pad"><SectionHeader title="Profile evidence" description="Your resume is the baseline used across readiness, gaps, and project recommendations." /><div className="cluster"><Button href="/resume" variant="secondary">Update resume</Button><Button href="/onboarding" variant="ghost">Edit profile setup</Button></div></Card>
+      <Card className="card-pad"><SectionHeader title="Privacy controls" />{production ? <Alert tone="info">Account export and deletion workflows are not yet exposed in this beta UI. The current production architecture keeps user-owned data behind authenticated Supabase policies.</Alert> : <><p className="secondary-text">Your demo profile, onboarding marker, progress, and mock entitlement are stored only in this browser.</p><div className="cluster"><Button variant="danger" onClick={clearDemoData}>Delete local demo data</Button><Link className="btn btn-ghost" href="/privacy">Read privacy policy</Link></div></>}</Card>
+    </div>
+  </main></AppShell>;
 }

@@ -1,0 +1,139 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+      - prompt-2-ui-foundation
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+
+  browser-smoke:
+    needs: validate
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.55.0-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install browser smoke package
+        run: npm install --no-save playwright@1.55.0
+      - name: Start JobReady
+        run: |
+          npm run dev > /tmp/jobready-next.log 2>&1 &
+          node - <<'NODE'
+          const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          for (let i = 0; i < 40; i++) {
+            try {
+              const response = await fetch("http://127.0.0.1:3000/login");
+              if (response.ok) process.exit(0);
+            } catch {}
+            await sleep(2000);
+          }
+          process.exit(1);
+          NODE
+          if [ $? -ne 0 ]; then
+            cat /tmp/jobready-next.log
+            exit 1
+          fi
+      - name: Run responsive browser smoke
+        run: |
+          cat > jobready-smoke.mjs <<'SCRIPT'
+          import { chromium } from "playwright";
+          import fs from "node:fs";
+
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+
+          fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
+
+          const runtimeErrors = [];
+          page.on("pageerror", (error) => runtimeErrors.push(error.message));
+
+          await page.goto("http://127.0.0.1:3000/login", { waitUntil: "networkidle" });
+          if (!(await page.getByRole("button", { name: /continue with demo account/i }).isVisible())) throw new Error("Demo login action is not visible");
+          await page.screenshot({ path: "/tmp/jobready-screens/login-desktop.png", fullPage: true });
+
+          await page.goto("http://127.0.0.1:3000/onboarding", { waitUntil: "networkidle" });
+          if (!(await page.getByRole("heading", { name: /start with your current profile/i }).isVisible())) throw new Error("Onboarding page did not render");
+          await page.screenshot({ path: "/tmp/jobready-screens/onboarding-desktop.png", fullPage: true });
+
+          await page.goto("http://127.0.0.1:3000/resume", { waitUntil: "networkidle" });
+          if (!(await page.getByRole("button", { name: /analyze resume/i }).isVisible())) throw new Error("Resume action is not visible");
+
+          await page.goto("http://127.0.0.1:3000/analysis", { waitUntil: "networkidle" });
+          await page.screenshot({ path: "/tmp/jobready-screens/analysis-desktop.png", fullPage: true });
+
+          const cases = [
+            { name: "desktop", width: 1440, height: 1000, expectMobile: false },
+            { name: "tablet", width: 768, height: 1024, expectMobile: false },
+            { name: "medium-mobile", width: 430, height: 932, expectMobile: true },
+            { name: "narrow-mobile", width: 360, height: 800, expectMobile: true },
+          ];
+
+          for (const item of cases) {
+            await page.setViewportSize({ width: item.width, height: item.height });
+            await page.goto("http://127.0.0.1:3000/dashboard");
+            await page.waitForLoadState("networkidle");
+
+            const findings = await page.evaluate(() => {
+              const visibleButtonHeights = Array.from(document.querySelectorAll(".btn"))
+                .map((node) => node.getBoundingClientRect().height)
+                .filter((height) => height > 0);
+              return {
+                overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+                bodyWidth: document.documentElement.clientWidth,
+                scrollWidth: document.documentElement.scrollWidth,
+                minButtonHeight: visibleButtonHeights.length ? Math.min(...visibleButtonHeights) : null,
+              };
+            });
+            if (findings.overflow) throw new Error(`Horizontal overflow at ${item.name}: ${findings.scrollWidth}px > ${findings.bodyWidth}px`);
+
+            const mobileNav = page.locator(".mobile-nav");
+            const sidebar = page.locator(".app-sidebar");
+            if (item.expectMobile) {
+              if (!(await mobileNav.isVisible())) throw new Error(`Mobile nav missing at ${item.name}`);
+              if (await sidebar.isVisible()) throw new Error(`Desktop sidebar visible at ${item.name}`);
+              if (findings.minButtonHeight !== null && findings.minButtonHeight < 42) throw new Error(`Tap target too small at ${item.name}: ${findings.minButtonHeight}px`);
+            } else {
+              if (!(await sidebar.isVisible())) throw new Error(`Desktop sidebar missing at ${item.name}`);
+            }
+
+            console.log(JSON.stringify({ viewport: item.name, ...findings, mobileNavVisible: await mobileNav.isVisible(), sidebarVisible: await sidebar.isVisible() }));
+            await page.screenshot({ path: `/tmp/jobready-screens/dashboard-${item.name}.png`, fullPage: true });
+          }
+
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.goto("http://127.0.0.1:3000/resume");
+          await page.waitForLoadState("networkidle");
+          const resumeOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+          if (resumeOverflow) throw new Error("Resume page overflows on mobile");
+          console.log(JSON.stringify({ viewport: "resume-mobile", overflow: resumeOverflow }));
+          await page.screenshot({ path: "/tmp/jobready-screens/resume-mobile.png", fullPage: true });
+
+          if (runtimeErrors.length) throw new Error(`Browser runtime errors: ${runtimeErrors.join(" | ")}`);
+          await browser.close();
+          SCRIPT
+          node jobready-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jobready-ui-smoke
+          path: /tmp/jobready-screens
