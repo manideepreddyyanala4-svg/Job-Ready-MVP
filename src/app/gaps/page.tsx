@@ -52,9 +52,15 @@ export default function GapsPage() {
     if (saved) {
       try { target = (JSON.parse(saved) as { roles?: string[] }).roles?.find((role) => roleNameToId[role]) ?? target; } catch { /* ignore */ }
     }
+    const nextGaps: GapView[] = gapsFromResume(local, roleNameToId[target] ?? "backend").map((gap) => ({
+      label: gap.label,
+      state: gap.state,
+      detail: gap.detail,
+      priority: gap.priority,
+    }));
     queueMicrotask(() => {
       setRoleName(target);
-      setGaps(gapsFromResume(local, roleNameToId[target] ?? "backend") as GapView[]);
+      setGaps(nextGaps);
       setLoaded(true);
     });
   }, []);
