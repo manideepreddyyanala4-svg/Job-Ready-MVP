@@ -51,14 +51,17 @@ export default function ProjectsPage() {
         weeklyHours = parsed.weeklyHours ?? weeklyHours;
       } catch { /* use demo defaults */ }
     }
-    setRecommendations(recommendProjects({
+    const nextRecommendations = recommendProjects({
       skills: local.skills ?? demoStudent.skills,
       projects: local.projects ?? demoStudent.projects,
       links: local.links ?? [],
       preferredRoles,
       weeklyHours,
-    }));
-    setLoaded(true);
+    });
+    queueMicrotask(() => {
+      setRecommendations(nextRecommendations);
+      setLoaded(true);
+    });
   }, []);
 
   const catalog = useMemo(() => projects.filter((project) =>
