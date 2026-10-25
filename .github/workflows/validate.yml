@@ -62,15 +62,20 @@ jobs:
           const browser = await chromium.launch({ headless: true });
           const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 
-          await page.goto("http://127.0.0.1:3000/login");
+          await page.goto("http://127.0.0.1:3000/login", { waitUntil: "networkidle" });
           await page.getByRole("button", { name: /continue with demo account/i }).click();
           await page.waitForURL("**/onboarding");
+          await page.waitForLoadState("networkidle");
           await page.getByRole("button", { name: /^continue/i }).click();
+          await page.getByRole("heading", { name: /choose the roles you are exploring/i }).waitFor();
           await page.getByRole("button", { name: /^continue/i }).click();
+          await page.getByRole("heading", { name: /set a realistic weekly pace/i }).waitFor();
           await page.getByRole("button", { name: /save profile and continue/i }).click();
           await page.waitForURL("**/resume");
+          await page.waitForLoadState("networkidle");
           await page.getByRole("button", { name: /use demo resume/i }).click();
           await page.waitForURL("**/analysis");
+          await page.waitForLoadState("networkidle");
 
           fs.mkdirSync("/tmp/jobready-screens", { recursive: true });
           await page.screenshot({ path: "/tmp/jobready-screens/analysis-desktop.png", fullPage: true });
