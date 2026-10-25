@@ -1,36 +1,106 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
+type Notice = { kind: "error" | "success" | "info"; message: string } | null;
+
+function safeNext(value: string | null) {
+  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : null;
+}
+
 export default function Login() {
-  const router = useRouter(); const [email, setEmail] = useState("arjun@example.com");
-  const [error, setError] = useState("");
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState<Notice>(null);
   const [busy, setBusy] = useState(false);
-  const production = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.NEXT_PUBLIC_JOBREADY_MODE === "production");
+  const production = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+    process.env.NEXT_PUBLIC_JOBREADY_MODE === "production",
+  );
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (!error) return;
+    queueMicrotask(() => {
+      if (error === "auth_callback") setNotice({ kind: "error", message: "That sign-in link could not be completed. Request a new secure link below." });
+      if (error === "configuration") setNotice({ kind: "error", message: "Sign-in is temporarily unavailable because this environment is not fully configured." });
+    });
+  }, []);
+
   const submit = async () => {
-    if (!email.trim() || !email.includes("@")) {
-      setError("Enter a valid email address to continue.");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setNotice({ kind: "error", message: "Enter a valid email address." });
       return;
     }
+
+    const params = new URLSearchParams(window.location.search);
+    const next = safeNext(params.get("next"));
+
     if (production) {
       setBusy(true);
+      setNotice(null);
       const client = getSupabaseBrowserClient();
-      const { error: authError } = await client!.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      const callback = new URL("/auth/callback", window.location.origin);
+      if (next) callback.searchParams.set("next", next);
+      const { error } = await client!.auth.signInWithOtp({
+        email: cleanEmail,
+        options: { emailRedirectTo: callback.toString() },
       });
       setBusy(false);
-      if (authError) {
-        setError(authError.message);
+      if (error) {
+        setNotice({ kind: "error", message: "We could not send the sign-in link. Try again in a moment." });
         return;
       }
-      setError("Check your email for a secure sign-in link.");
+      setNotice({ kind: "success", message: "Check your email for a secure sign-in link. You can close this tab after opening it." });
       return;
     }
-    localStorage.setItem("jobready-user", email.trim());
-    router.push("/onboarding");
+
+    window.localStorage.setItem("jobready-user", cleanEmail);
+    router.push(next ?? "/onboarding");
   };
-  return <main className="container" style={{padding:"70px 0", maxWidth:560}}><Link href="/" style={{fontWeight:800, fontSize:20}}><span style={{color:"var(--orange)"}}>●</span> jobready</Link><div className="card" style={{padding:32, marginTop:60}}><div className="eyebrow">Start with a clear baseline</div><h1 className="serif" style={{fontSize:42, margin:"10px 0"}}>Check your job readiness.</h1><p style={{color:"var(--muted)", lineHeight:1.5}}>{production ? "Sign in with a secure magic link. Your profile and progress are stored in your account." : "Use the demo account to explore the complete V0 flow. Your progress is stored locally in this browser."}</p><label style={{display:"block", marginTop:24, fontSize:13, fontWeight:700}}>Email<input value={email} onChange={e=>{setEmail(e.target.value);setError("");}} type="email" autoComplete="email" style={{display:"block", width:"100%", marginTop:8, padding:13, border:"1px solid var(--line)", borderRadius:9}}/></label>{error&&<p role="alert" style={{color:"#b23b2e",fontSize:13}}>{error}</p>}<button className="btn btn-primary" style={{width:"100%", marginTop:18}} onClick={submit} disabled={busy}>{busy ? "Sending secure link…" : production ? "Send secure sign-in link →" : "Continue with demo account →"}</button><p style={{fontSize:12, color:"var(--muted)", textAlign:"center", marginTop:18}}>{production ? "Supabase Auth handles the session; no password is stored by JobReady." : "Supabase Auth adapter is ready for production credentials. No password is stored by this demo."}</p></div></main>;
+
+  return (
+    <main className="narrow" style={{ padding: "42px 0 70px" }}>
+      <Link href="/" className="site-logo"><span className="brand-mark" aria-hidden="true" />JobReady</Link>
+      <div className="card" style={{ marginTop: 48, padding: "clamp(24px, 6vw, 40px)" }}>
+        <div className="eyebrow">{production ? "Secure sign-in" : "Explore the private-beta flow"}</div>
+        <h1 className="display section-title" style={{ fontSize: 42 }}>{production ? "Sign in to your JobReady account." : "Start with your profile, not a random course."}</h1>
+        <p className="section-copy">
+          {production
+            ? "We use an email magic link so there is no JobReady password to remember."
+            : "Demo mode stores your working state in this browser. Production uses authenticated, user-owned records."}
+        </p>
+
+        <div className="field" style={{ marginTop: 26 }}>
+          <label className="field-label" htmlFor="email">Email address</label>
+          <input
+            id="email"
+            className="input"
+            value={email}
+            onChange={(event) => { setEmail(event.target.value); setNotice(null); }}
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="you@example.com"
+            disabled={busy}
+          />
+        </div>
+
+        {notice && <div role={notice.kind === "error" ? "alert" : "status"} className={"alert " + (notice.kind === "error" ? "alert-error" : notice.kind === "success" ? "alert-success" : "alert-info")} style={{ marginTop: 14 }}>{notice.message}</div>}
+
+        <button className="btn btn-primary" style={{ width: "100%", marginTop: 18 }} onClick={submit} disabled={busy}>
+          {busy ? "Sending secure link…" : production ? "Email me a sign-in link →" : "Continue in demo mode →"}
+        </button>
+
+        <p className="small muted" style={{ textAlign: "center", marginTop: 16 }}>
+          JobReady does not sell your resume or use a readiness score as a hiring guarantee.
+        </p>
+      </div>
+    </main>
+  );
 }

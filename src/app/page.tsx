@@ -1,17 +1,195 @@
 import Link from "next/link";
+import { projectPassPriceLabel } from "@/lib/pricing";
+
+const steps = [
+  ["01", "Upload your resume", "Start from the evidence already visible in your profile."],
+  ["02", "Choose a direction", "Focus the analysis on the roles you actually want to explore."],
+  ["03", "See the evidence gaps", "Separate missing knowledge from knowledge that simply is not proven yet."],
+  ["04", "Build the right project", "Work through a controlled end-to-end project designed around those gaps."],
+  ["05", "Verify the work", "Use acceptance criteria, tests, artifacts, and deployment checks instead of a completion badge."],
+  ["06", "Defend it", "Practice explaining your architecture, failures, trade-offs, and next improvements."],
+];
 
 export default function Home() {
-  return <main>
-    <header className="container" style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"24px 0"}}>
-      <Link href="/" style={{fontWeight:800, fontSize:21, letterSpacing:"-.04em"}}><span style={{color:"var(--orange)"}}>●</span> jobready</Link>
-      <nav style={{display:"flex", gap:22, alignItems:"center", fontSize:14}}><a href="#how">How it works</a><a href="#report">Sample report</a><Link className="btn btn-dark" href="/login">Get started</Link></nav>
-    </header>
-    <section className="container" style={{padding:"88px 0 90px", display:"grid", gridTemplateColumns:"1.1fr .9fr", gap:60, alignItems:"center"}}>
-      <div><div className="eyebrow">For students building their first serious career proof</div><h1 className="serif" style={{fontSize:"clamp(48px,7vw,82px)", lineHeight:.98, letterSpacing:"-.055em", margin:"18px 0 24px"}}>Find out what is missing <em style={{color:"var(--orange)"}}>before</em> you apply.</h1><p style={{fontSize:19, lineHeight:1.55, color:"var(--muted)", maxWidth:560}}>Upload your resume. See which tech roles you are ready for, what your profile does not prove yet, and which project you should build next.</p><div style={{display:"flex", gap:12, flexWrap:"wrap", marginTop:30}}><Link className="btn btn-primary" href="/login">Check my job readiness — free <span>→</span></Link><a className="btn btn-ghost" href="#how">See how it works</a></div><p style={{fontSize:12, color:"var(--muted)", marginTop:18}}>No hiring guarantees. No fake scores. Just an evidence-based next step.</p></div>
-      <div className="card" id="report" style={{padding:26, background:"#e8f0ec", transform:"rotate(2deg)"}}><div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}><div><div className="eyebrow">Demo readiness report</div><h3 style={{margin:"8px 0 0", fontSize:21}}>Arjun&apos;s starting point</h3></div><div style={{borderRadius:"50%", width:90, height:90, display:"grid", placeItems:"center", background:"#fff", border:"8px solid #f2ad72", fontSize:28, fontWeight:800}}>58</div></div><div style={{height:1, background:"#cbdad4", margin:"24px 0"}}/>{([["Technical foundations",72],["Role-relevant skills",61],["Production evidence",31],["Proof of work",48]] as [string, number][]).map(([label,n])=><div key={label} style={{margin:"17px 0"}}><div style={{display:"flex", justifyContent:"space-between", fontSize:13, fontWeight:700}}><span>{label}</span><span>{n}</span></div><div style={{height:8, borderRadius:9, background:"#cfded7", marginTop:7}}><div style={{height:"100%", width:`${n}%`, borderRadius:9, background:n < 50 ? "var(--orange)" : "var(--navy)"}}/></div></div>)}<div style={{background:"#fff", borderRadius:12, padding:13, marginTop:22, fontSize:13}}><b>Highest-value next action</b><br/><span style={{color:"var(--muted)"}}>Ship one tested API with Docker and a deployment note.</span></div></div>
-    </section>
-    <section id="how" style={{background:"var(--navy)", color:"#fff", padding:"72px 0"}}><div className="container"><div className="eyebrow" style={{color:"#f5ad78"}}>A more useful career loop</div><h2 className="serif" style={{fontSize:46, maxWidth:620, margin:"14px 0 40px", letterSpacing:"-.04em"}}>Stop collecting tutorials. Start collecting evidence.</h2><div className="grid" style={{gridTemplateColumns:"repeat(4,1fr)"}}>{[["01","Understand","Tell us where you are, what you know, and where you want to go."],["02","See clearly","Get a readiness score that separates knowledge from proof."],["03","Build next","Pick a focused project designed around your highest-value gaps."],["04","Defend it","Work through missions until your project is something you can explain."]].map(([n,t,d])=><div key={n} style={{borderTop:"1px solid #426070", paddingTop:20}}><div style={{color:"#f5ad78", fontWeight:700}}>{n}</div><h3 style={{fontSize:21, margin:"13px 0 8px"}}>{t}</h3><p style={{color:"#c4d2d2", lineHeight:1.5, fontSize:14}}>{d}</p></div>)}</div></div></section>
-    <section className="container" style={{padding:"78px 0"}}><div style={{maxWidth:700}}><div className="eyebrow">Built for the awkward middle</div><h2 className="serif" style={{fontSize:44, letterSpacing:"-.04em", margin:"12px 0 18px"}}>You have learned things. Your resume just does not prove enough of them yet.</h2><p style={{color:"var(--muted)", lineHeight:1.6, fontSize:17}}>JobReady never treats a missing keyword as proof that you do not know a skill. It shows what is strong, what is partial, and what is simply not evidenced yet — then gives you a practical way to close the gap.</p></div><div className="grid" style={{gridTemplateColumns:"repeat(3,1fr)", marginTop:42}}>{[["No fake promises","Role Match Score is not a probability of getting hired."],["No random projects","Recommendations are selected from verified project families."],["No copy-paste code","Missions help you build and explain your own work."]].map(([t,d])=><div className="card" key={t} style={{padding:22}}><div style={{fontSize:24, color:"var(--orange)"}}>✦</div><h3 style={{margin:"14px 0 8px"}}>{t}</h3><p style={{color:"var(--muted)", lineHeight:1.5, fontSize:14}}>{d}</p></div>)}</div></section>
-    <footer style={{borderTop:"1px solid var(--line)", padding:"28px 0"}}><div className="container" style={{display:"flex", justifyContent:"space-between", color:"var(--muted)", fontSize:13}}><span>© 2026 JobReady</span><span><Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link></span></div></footer>
-  </main>;
+  return (
+    <main>
+      <header className="site-header">
+        <div className="container site-header-inner">
+          <Link href="/" className="site-logo"><span className="brand-mark" aria-hidden="true" />JobReady</Link>
+          <nav className="site-nav" aria-label="Public navigation">
+            <a href="#how">How it works</a>
+            <a href="#difference">Why it is different</a>
+            <a href="#pricing">Beta pricing</a>
+            <Link className="btn btn-dark" href="/login">Get started</Link>
+          </nav>
+        </div>
+      </header>
+
+      <section className="hero">
+        <div className="container hero-grid">
+          <div>
+            <div className="eyebrow">For internships and fresher technical roles</div>
+            <h1>Don&apos;t build random projects. <em>Build the evidence</em> your target job is missing.</h1>
+            <p className="hero-copy">
+              Upload your resume, see what your target roles require, identify what your profile does not prove yet, and build an end-to-end project designed to close those gaps.
+            </p>
+            <div className="cluster actions" style={{ marginTop: 28 }}>
+              <Link className="btn btn-primary" href="/login">Check my readiness →</Link>
+              <a className="btn btn-secondary" href="#how">See the mechanism</a>
+            </div>
+            <p className="hero-note">A readiness score describes visible profile evidence. It is not a probability of getting hired.</p>
+          </div>
+
+          <div className="card product-preview" aria-label="Sample JobReady readiness report">
+            <div className="preview-window">
+              <div className="preview-bar"><span className="preview-dot" /><span className="preview-dot" /><span className="preview-dot" /><span className="small muted" style={{ marginLeft: 6 }}>Sample product view</span></div>
+              <div className="preview-body">
+                <div className="eyebrow">Profile readiness</div>
+                <div className="preview-score" style={{ marginTop: 12 }}>
+                  <div className="preview-score-number">58</div>
+                  <div>
+                    <strong style={{ display: "block", fontSize: 18 }}>Developing evidence</strong>
+                    <p className="small muted" style={{ marginBottom: 0 }}>Good technical foundations. Production proof is the biggest gap.</p>
+                  </div>
+                </div>
+                <div style={{ marginTop: 20 }}>
+                  <div className="preview-row"><span>Strong evidence</span><strong>Python · SQL · Git</strong></div>
+                  <div className="preview-row"><span>Partial evidence</span><strong>API design</strong></div>
+                  <div className="preview-row"><span>Not evidenced yet</span><strong>Testing · Docker</strong></div>
+                  <div className="preview-row"><span>Best next project</span><strong>Logistics backend</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="difference" className="marketing-section alt">
+        <div className="container">
+          <div className="eyebrow">The distinction that matters</div>
+          <h2 className="display section-title" style={{ color: "white", maxWidth: 680 }}>Knowing a skill and proving a skill are not the same thing.</h2>
+          <p className="section-copy">A resume can fail to show evidence even when the student has learned the topic. JobReady keeps those two situations separate instead of turning every missing keyword into a knowledge deficit.</p>
+          <div className="three-col" style={{ marginTop: 34 }}>
+            <div className="card compare-card" style={{ background: "#123f51", borderColor: "#365b69" }}>
+              <span className="badge badge-dark">Missing knowledge</span>
+              <h3>You likely need to learn or practice the concept.</h3>
+              <p className="small" style={{ color: "#bfd0d4" }}>Example: you cannot explain basic SQL joins and have no related work to inspect.</p>
+            </div>
+            <div className="card compare-card" style={{ background: "#123f51", borderColor: "#365b69" }}>
+              <span className="badge badge-dark">Missing evidence</span>
+              <h3>You may know it, but your profile does not prove it.</h3>
+              <p className="small" style={{ color: "#bfd0d4" }}>Example: Python is listed, but there is no tested or deployed Python system a reviewer can inspect.</p>
+            </div>
+            <div className="card compare-card" style={{ background: "#123f51", borderColor: "#365b69" }}>
+              <span className="badge badge-dark">JobReady&apos;s job</span>
+              <h3>Turn the highest-value gaps into inspectable work.</h3>
+              <p className="small" style={{ color: "#bfd0d4" }}>The project is selected because of the evidence it creates—not because it is trendy.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" className="marketing-section">
+        <div className="container">
+          <div className="eyebrow">Resume → evidence → project → defense</div>
+          <h2 className="display section-title">A career loop that ends in proof.</h2>
+          <p className="section-copy">JobReady is not another course catalog. The product starts from your current profile and works backward from the evidence your target role expects.</p>
+          <div className="three-col" style={{ marginTop: 34 }}>
+            {steps.map(([number, title, body]) => (
+              <div className="step-card" key={number}>
+                <div className="step-number">{number}</div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="marketing-section" style={{ paddingTop: 16 }}>
+        <div className="container two-col">
+          <div className="card">
+            <div className="eyebrow">Example student journey</div>
+            <h2 className="display section-title" style={{ fontSize: 34 }}>From “I know Flask” to evidence a reviewer can inspect.</h2>
+            <div className="evidence-list">
+              {[
+                "Resume shows Python, SQL, Flask, and Git.",
+                "Backend role fit is reasonable, but testing, authorization, Docker, and deployment are weak or missing.",
+                "JobReady recommends a production backend project because one project can close several high-priority gaps together.",
+                "The student works through scoped missions, produces artifacts, tests failure cases, documents trade-offs, and prepares to defend the project.",
+              ].map((item, index) => <div className="evidence-item" key={item}><span className="evidence-icon">{index + 1}</span><span>{item}</span></div>)}
+            </div>
+          </div>
+          <div className="card card-soft">
+            <div className="eyebrow">What the project experience emphasizes</div>
+            <h3 style={{ fontSize: 24, margin: "12px 0" }}>Build decisions, not copy-paste completion.</h3>
+            <div className="evidence-list">
+              {["Clear mission objective and why it matters", "Acceptance criteria and concrete deliverables", "Progressive hints instead of immediate full solutions", "Testing, deployment, and failure-path thinking", "Project-defense questions tied to your implementation"].map((item) => <div className="evidence-item" key={item}><span className="evidence-icon">✓</span><span>{item}</span></div>)}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="marketing-section alt">
+        <div className="container">
+          <div className="eyebrow">Current beta scope</div>
+          <h2 className="display section-title" style={{ color: "white" }}>Three role directions. One fully validated project path first.</h2>
+          <p className="section-copy">The architecture supports more tracks later, but JobReady does not advertise project inventory that has not been designed and validated.</p>
+          <div className="three-col" style={{ marginTop: 30 }}>
+            {[
+              ["Backend / Software Engineer", "Available", "Production backend evidence is the first complete project path."],
+              ["Data Analyst", "Role analysis", "Role fit and gaps are supported; the full controlled project path is still being validated."],
+              ["AI / ML Engineer", "Role analysis", "Role fit and gaps are supported; the full controlled project path is still being validated."],
+            ].map(([role, status, body]) => <div className="card" key={role} style={{ background: "#123f51", borderColor: "#365b69" }}><span className="badge badge-dark">{status}</span><h3>{role}</h3><p className="small" style={{ color: "#bfd0d4" }}>{body}</p></div>)}
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" className="marketing-section">
+        <div className="container two-col">
+          <div>
+            <div className="eyebrow">Beta pricing philosophy</div>
+            <h2 className="display section-title">Mission 1 is free. The paid value is the structured execution layer.</h2>
+            <p className="section-copy">There are no fake discounts, countdown timers, or promises that paying produces a job. Real checkout remains disabled until the payment and entitlement path is verified end to end.</p>
+          </div>
+          <div className="card card-warm">
+            <div className="split">
+              <div><div className="eyebrow">Project Pass</div><strong style={{ fontSize: 34, letterSpacing: "-.04em" }}>{projectPassPriceLabel}</strong></div>
+              <span className="badge badge-warm">One-time beta price</span>
+            </div>
+            <hr className="divider" />
+            <div className="evidence-list">
+              {["Full mission sequence", "Progressive hints", "Acceptance and verification guidance", "Deployment guidance", "Project-defense preparation", "Progress tracking"].map((item) => <div className="evidence-item" key={item}><span className="evidence-icon">✓</span><span>{item}</span></div>)}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="marketing-section" style={{ paddingTop: 14 }}>
+        <div className="container">
+          <div className="eyebrow">Questions before you upload</div>
+          <h2 className="display section-title">FAQ</h2>
+          <div className="faq" style={{ marginTop: 24 }}>
+            <details><summary>Does the readiness score predict whether I will get hired?</summary><p>No. It is an explainable profile-readiness score based on evidence visible in the structured profile. Hiring decisions depend on many factors JobReady cannot know.</p></details>
+            <details><summary>Does “missing” mean I do not know the skill?</summary><p>No. “Missing evidence” means your current profile does not prove it. JobReady avoids converting a missing resume mention into a claim about your knowledge.</p></details>
+            <details><summary>Will JobReady generate hundreds of projects for me?</summary><p>No. Project families are controlled and validated. The catalog is designed to scale, but unfinished projects are shown as planned rather than pretending they are ready.</p></details>
+            <details><summary>What happens to my resume?</summary><p>In production mode, resumes are stored in a private user-scoped bucket. The product stores structured evidence for analysis and does not send raw resume text to analytics.</p></details>
+          </div>
+          <div className="card card-dark" style={{ marginTop: 46 }}>
+            <div className="two-col" style={{ alignItems: "center" }}>
+              <div><div className="eyebrow" style={{ color: "#ffb495" }}>Start with evidence</div><h2 className="display" style={{ fontSize: 36, margin: "8px 0 10px" }}>Find the highest-value thing to prove next.</h2><p className="muted" style={{ margin: 0 }}>Your first useful output should be clarity, not another course recommendation.</p></div>
+              <div style={{ justifySelf: "end" }}><Link className="btn btn-primary" href="/login">Check my readiness →</Link></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer className="site-footer">
+        <div className="container site-footer-inner">
+          <span>© 2026 JobReady</span>
+          <span className="cluster"><Link href="/privacy">Privacy</Link><span>·</span><Link href="/terms">Terms</Link><span>·</span><Link href="/login">Sign in</Link></span>
+        </div>
+      </footer>
+    </main>
+  );
 }

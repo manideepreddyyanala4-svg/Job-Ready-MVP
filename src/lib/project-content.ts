@@ -1,3 +1,5 @@
+import "server-only";
+
 export type ProjectRubricCriterion = {
   id: string;
   title: string;

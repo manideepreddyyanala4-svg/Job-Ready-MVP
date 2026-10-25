@@ -49,7 +49,10 @@ export async function POST(request: Request) {
         structured_resume: result.resume,
       });
       if (parse.error) {
-        await auth.client.storage.from(resumeBucket()).remove([storagePath]);
+        await Promise.all([
+          auth.client.storage.from(resumeBucket()).remove([storagePath]),
+          auth.client.from("resume_files").delete().eq("id", resumeId).eq("user_id", auth.user!.id),
+        ]);
         return NextResponse.json({ ok: false, code: "persistence", message: "The structured resume could not be saved." }, { status: 502 });
       }
       const { data: parseRow } = await auth.client.from("resume_parses").select("id").eq("resume_file_id", resumeId).single();

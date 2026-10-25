@@ -3,36 +3,108 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell, PageTitle } from "@/components/AppShell";
-import { gaps, gapsFromResume } from "@/lib/domain";
+import { gapsFromResume, type EvidenceState, type RoleId } from "@/lib/domain";
 import { loadStructuredResume } from "@/lib/demo-storage";
-import { StructuredResume } from "@/lib/resume";
+import { demoResume, StructuredResume } from "@/lib/resume";
 
-type Gap = (typeof gaps)[number];
+type GapView = { label: string; state: EvidenceState; detail: string; priority: string };
+const production = process.env.NEXT_PUBLIC_JOBREADY_MODE === "production";
 
-export default function Gaps() {
-  const [currentGaps, setCurrentGaps] = useState<readonly Gap[]>(gaps);
+const roleNameToId: Record<string, RoleId> = {
+  "Backend / Software Engineer": "backend",
+  "Data Analyst": "analyst",
+  "AI / ML Engineer": "ml",
+};
+
+export default function GapsPage() {
+  const [gaps, setGaps] = useState<GapView[]>([]);
+  const [roleName, setRoleName] = useState("Backend / Software Engineer");
+  const [loaded, setLoaded] = useState(false);
+
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_JOBREADY_MODE === "production") {
-      void fetch("/api/analysis")
-        .then((response) => response.json())
-        .then((result: { gaps?: Array<{ classification: Gap["state"]; priority: number; skills?: { name?: string } | null }> }) => {
-          if (result.gaps) {
-            setCurrentGaps(result.gaps.map((gap) => ({
-              label: gap.skills?.name ?? "Profile evidence",
-              state: gap.classification,
-              detail: "This classification is derived from your persisted structured resume evidence.",
-              priority: gap.priority >= 5 ? "High" : gap.priority >= 3 ? "Medium" : "Strong",
-            })));
-          }
-        })
-        .catch(() => undefined);
+    if (production) {
+      void Promise.all([
+        fetch("/api/analysis").then((response) => response.json()),
+        fetch("/api/profile").then((response) => response.json()),
+      ]).then(([analysis, profile]: [
+        { gaps?: Array<{ classification: EvidenceState; priority: number; skills?: { name?: string } | null }> },
+        { profile?: { target_role?: string } | null },
+      ]) => {
+        const target = profile.profile?.target_role ?? "Backend / Software Engineer";
+        setRoleName(target);
+        setGaps((analysis.gaps ?? []).map((gap) => ({
+          label: gap.skills?.name ?? "Profile evidence",
+          state: gap.classification,
+          detail: gap.classification === "strong"
+            ? "This evidence is visible in the structured profile."
+            : gap.classification === "partial"
+              ? "Some related evidence is visible, but it is not yet strong or inspectable enough."
+              : "This is not currently evidenced. That does not prove you do not know it.",
+          priority: gap.priority >= 5 ? "High" : gap.priority >= 3 ? "Medium" : "Strong",
+        })));
+      }).finally(() => setLoaded(true));
       return;
     }
-    const timer = window.setTimeout(() => {
-      const resume = loadStructuredResume<StructuredResume>();
-      if (resume) setCurrentGaps(gapsFromResume(resume));
-    }, 0);
-    return () => window.clearTimeout(timer);
+
+    const local = loadStructuredResume<StructuredResume>() ?? demoResume;
+    const saved = window.localStorage.getItem("jobready-student-profile");
+    let target = "Backend / Software Engineer";
+    if (saved) {
+      try { target = (JSON.parse(saved) as { roles?: string[] }).roles?.find((role) => roleNameToId[role]) ?? target; } catch { /* ignore */ }
+    }
+    const nextGaps: GapView[] = gapsFromResume(local, roleNameToId[target] ?? "backend").map((gap) => ({
+      label: gap.label,
+      state: gap.state,
+      detail: gap.detail,
+      priority: gap.priority,
+    }));
+    queueMicrotask(() => {
+      setRoleName(target);
+      setGaps(nextGaps);
+      setLoaded(true);
+    });
   }, []);
-  return <AppShell><main className="container" style={{ padding: "54px 0" }}><PageTitle eyebrow="Evidence gaps" title="Know what to fix first." body="A missing mention is not proof you lack a skill. These cards show the current state of evidence in your profile and the next action that creates better proof." /><div className="grid" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>{(["strong", "partial", "missing"] as const).map((state) => <section key={state}><h2 style={{ fontSize: 19, textTransform: "capitalize" }}>{state === "strong" ? "Strong evidence" : state === "partial" ? "Partial / weak evidence" : "Missing evidence"}</h2>{currentGaps.filter((gap) => gap.state === state).map((gap) => <div className="card" key={gap.label} style={{ padding: 19, marginTop: 12, borderTop: `4px solid ${state === "strong" ? "#4c9b7d" : state === "partial" ? "#e4a34b" : "var(--orange)"}` }}><div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b>{gap.label}</b><span className="tag">{gap.priority}</span></div><p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>{gap.detail}</p></div>)}</section>)}</div><div className="card" style={{ padding: 26, marginTop: 28, background: "#e8f0ec" }}><b>Highest-value cluster</b><p style={{ marginBottom: 0, color: "var(--muted)" }}>One production backend project can address API design, database modeling, testing, Docker, and deployment evidence together.</p><Link className="btn btn-primary" href="/projects" style={{ marginTop: 16 }}>See project recommendations →</Link></div></main></AppShell>;
+
+  const highValue = gaps.filter((gap) => gap.state !== "strong" && gap.priority === "High").slice(0, 3);
+
+  return (
+    <AppShell>
+      <PageTitle
+        eyebrow={"Evidence gaps · " + roleName}
+        title="Know what to prove next."
+        body="These are evidence states, not judgments about your ability. “Missing” means JobReady cannot currently see credible proof in the structured profile."
+      />
+
+      <div className="alert alert-info" style={{ marginBottom: 20 }}><strong>Not evidenced ≠ do not know.</strong>&nbsp; If you already know a skill, the fastest improvement may be to produce inspectable project evidence rather than take another course.</div>
+
+      {!loaded ? <div className="card" aria-busy="true">Loading your evidence gaps…</div> : gaps.length === 0 ? (
+        <div className="empty-state"><div className="empty-icon">—</div><h2>No gap analysis is available yet.</h2><Link href="/resume" className="btn btn-primary">Add or replace resume →</Link></div>
+      ) : (
+        <div className="three-col">
+          {(["strong", "partial", "missing"] as const).map((state) => (
+            <section key={state}>
+              <div className="cluster"><span className={"state-dot state-" + state} /><h2 style={{ fontSize: 18, margin: 0 }}>{state === "strong" ? "Strong evidence" : state === "partial" ? "Partial / weak evidence" : "Missing evidence"}</h2></div>
+              <div className="stack" style={{ marginTop: 13 }}>
+                {gaps.filter((gap) => gap.state === state).length ? gaps.filter((gap) => gap.state === state).map((gap) => (
+                  <article className="card card-tight" key={gap.label}>
+                    <div className="split"><strong>{gap.label}</strong><span className={"badge " + (gap.priority === "High" ? "badge-warm" : "badge-muted")}>{gap.priority}</span></div>
+                    <p className="small muted" style={{ marginBottom: 0 }}>{gap.detail}</p>
+                  </article>
+                )) : <div className="empty-state" style={{ padding: 20 }}><span className="small muted">No items in this state.</span></div>}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {highValue.length > 0 && (
+        <section className="card card-dark" style={{ marginTop: 24 }}>
+          <div className="eyebrow" style={{ color: "#ffb495" }}>Highest-value cluster</div>
+          <h2 style={{ margin: "10px 0 8px" }}>{highValue.map((gap) => gap.label).join(" · ")}</h2>
+          <p className="muted">The best next project is one that closes several high-priority evidence gaps together, not one that merely adds another technology name.</p>
+          <Link href="/projects" className="btn btn-primary" style={{ marginTop: 8 }}>See project fit →</Link>
+        </section>
+      )}
+    </AppShell>
+  );
 }

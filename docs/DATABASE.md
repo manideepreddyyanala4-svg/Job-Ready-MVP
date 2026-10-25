@@ -1,13 +1,152 @@
-# Database direction
+# JobReady Database
 
-The production schema is implemented in `supabase/migrations/0001_jobready_schema.sql`, with reference data in `0002_reference_data.sql`. It includes profiles, skills, resume files/parses, readiness scores, roles, role requirements, gaps, project families/variants, recommendations, enrollments, missions, progress/hint usage, payment transactions, and entitlements. User-owned rows use `auth.uid()` ownership policies; reference tables can be seeded separately and read by authenticated users.
+## Important status language
 
-Migration `0003_secure_mission_progress.sql` removes direct client progress writes and adds
-`public.save_mission_progress`, which verifies enrollment ownership, mission membership, and
-active family entitlement inside Postgres before writing. Migration `0004_mission_content.sql`
-adds the full twelve-mission Logistics objectives, tasks, deliverables, hints, resources, and
-estimated times idempotently.
+Migration file exists != migration applied.
 
-Resume files belong in a private `resumes` Storage bucket with paths generated as `resumes/{auth user id}/{uuid}.pdf`. Raw filenames are metadata only. The service-role key is never exposed to browser code; it is used only by trusted server-side score persistence.
+This repository cannot prove the state of the external Supabase project merely from checked-in SQL.
 
-The local MVP continues to use seeded static domain content plus browser-persisted state when production credentials are absent. Production activation requires applying all four migrations, configuring the Supabase bucket/policies, and setting the server-only service-role key.
+Use:
+- **CODE EXISTS** for a migration present in Git
+- **APPLIED TO PRODUCTION** only after verifying the Supabase migration/schema state directly
+
+## Migrations
+
+### 0001_jobready_schema.sql
+
+Defines:
+- profiles
+- skills/student skills
+- resume files/parses
+- readiness
+- roles/requirements/matches
+- skill gaps
+- project families/variants/missions
+- recommendations
+- enrollments/progress
+- payments
+- entitlements
+- private resumes bucket and policies
+
+### 0002_reference_data.sql
+
+Seeds:
+- initial skills
+- 3 supported roles
+- role skill requirements
+- project families
+- initial variants
+- 12 logistics mission summary rows
+
+### 0003_secure_mission_progress.sql
+
+Replaces direct progress writes with `save_mission_progress(...)`.
+
+The function validates:
+- current user owns enrollment
+- mission belongs to enrollment variant
+- paid mission has active family entitlement
+
+### 0004_mission_content.sql
+
+Adds detailed logistics mission definitions.
+
+### 0005_private_beta_hardening.sql
+
+Required for this branch.
+
+Adds/fixes:
+- `profiles.target_roles text[]`
+- system-design + Excel reference skills
+- RLS on skills/roles/requirements/project families/variants/missions
+- explicit grants/revokes for authenticated reference reads
+- entitlement-aware mission-detail policy
+- account deletion request table + policies
+- hint-usage merge behavior in progress RPC
+- acceptance + verification fields for logistics missions
+
+## RLS model
+
+User-owned tables use `auth.uid()` ownership.
+
+Reference/project metadata:
+- no anonymous database read
+- authenticated users can read safe reference rows
+- project mission rows are free-or-entitled
+
+Paid mission policy concept:
+
+```
+free mission
+OR
+active user entitlement for mission variant family
+```
+
+Application server checks remain in place even with RLS.
+
+## Resume storage
+
+Bucket: `resumes`
+
+Public: false
+
+Path:
+```
+resumes/{auth.uid()}/{resume_id}.pdf
+```
+
+Policies restrict insert/select/update/delete to the user-scoped folder.
+
+## Analysis versions
+
+Current code writes **v2**:
+- readiness v2
+- role matches v2
+- skill gaps v2
+- recommendations v2
+
+Read API selects the latest readiness scoring version and filters the related current records accordingly.
+
+Older v1 rows may remain as history.
+
+## Payments vs entitlements
+
+`payments`:
+- external transaction record
+- created / paid / failed
+
+`user_entitlements`:
+- active/revoked access record
+- tied to user + project family + payment
+
+Never infer entitlement from:
+- a client redirect
+- localStorage
+- query string
+- UI success state
+
+## Account deletion requests
+
+`account_deletion_requests` records:
+- user_id
+- status
+- requested_at
+- completed_at
+
+The table records intent/status. It does not itself delete user data.
+
+## Production application checklist
+
+Before production mode:
+1. inspect current Supabase schema/migration history
+2. apply missing migrations in order
+3. confirm bucket is private
+4. verify all exposed tables have intended RLS/grants
+5. test user A cannot read user B data
+6. test anonymous user cannot read project mission content
+7. test free mission is readable by authenticated user
+8. test paid mission is unreadable without entitlement
+9. test paid mission becomes readable with entitlement
+10. test progress RPC rejects paid writes without entitlement
+
+Until those checks are run against the external project, migration status is **BLOCKED EXTERNALLY / UNVERIFIED**, not “live.”

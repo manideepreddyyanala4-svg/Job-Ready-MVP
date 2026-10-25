@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { validateProfile } from "@/app/api/profile/route";
+import { projectRegistryEntry } from "@/lib/project-registry";
 import { resumeStoragePath } from "@/lib/supabase/storage";
+import { sanitizeAnalyticsProperties } from "@/lib/analytics";
 
 describe("production boundaries", () => {
   it("rejects malformed or unsupported profile input", () => {
@@ -22,7 +24,7 @@ describe("production boundaries", () => {
       degree: "B.Tech",
       college: "College",
       studyYear: "3rd year",
-      roles: ["Backend / Software Engineer"],
+      roles: ["Backend / Software Engineer", "AI / ML Engineer"],
       weeklyHours: "8–12 hours per week",
     })).toBeNull();
   });
@@ -33,4 +35,18 @@ describe("production boundaries", () => {
     expect(path).not.toContain("resume.pdf");
   });
 
+  it("maps project ids to trusted server-side entitlement identifiers", () => {
+    expect(projectRegistryEntry("logistics-backend")?.familyId).toBe("00000000-0000-0000-0001-000000000001");
+    expect(projectRegistryEntry("unknown")).toBeUndefined();
+  });
+
+  it("drops unsupported analytics properties", () => {
+    const safe = sanitizeAnalyticsProperties({
+      projectId: "logistics-backend",
+      status: "started",
+      rawResumeText: "secret resume contents",
+      token: "secret-token",
+    });
+    expect(safe).toEqual({ projectId: "logistics-backend", status: "started" });
+  });
 });

@@ -1,4 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { projectPassPriceInr } from "@/lib/pricing";
+import { sanitizeAnalyticsProperties, type FunnelEvent, type FunnelProperties } from "@/lib/analytics";
 
 export interface PaymentProvider {
   createCheckout(): Promise<{ checkoutId: string; amount: number }>;
@@ -20,7 +22,7 @@ export type ProjectEntitlement = {
 
 export class MockPaymentProvider implements PaymentProvider {
   async createCheckout() {
-    return { checkoutId: `demo_${Date.now()}`, amount: 499 };
+    return { checkoutId: `demo_${Date.now()}`, amount: projectPassPriceInr };
   }
 }
 
@@ -51,27 +53,12 @@ export function createMockEntitlement(projectId: string, transaction: PaymentTra
 }
 
 export interface AnalyticsProvider {
-  track(event: AnalyticsEvent, properties?: Record<string, string>): void;
+  track(event: FunnelEvent, properties?: FunnelProperties): void;
 }
 
-export type AnalyticsEvent =
-  | "landing_view"
-  | "assessment_started"
-  | "onboarding_completed"
-  | "resume_uploaded"
-  | "analysis_completed"
-  | "role_viewed"
-  | "project_recommendation_viewed"
-  | "project_selected"
-  | "mission_started"
-  | "mission_completed"
-  | "paywall_viewed"
-  | "checkout_started"
-  | "payment_completed"
-  | "project_unlocked";
-
 export const analytics: AnalyticsProvider = {
-  track: (event, properties) => {
-    if (process.env.NODE_ENV === "development") console.info("[analytics]", event, properties ?? {});
+  track: (event, properties = {}) => {
+    const safe = sanitizeAnalyticsProperties(properties);
+    if (process.env.NODE_ENV === "development") console.info("[jobready:funnel]", event, safe);
   },
 };

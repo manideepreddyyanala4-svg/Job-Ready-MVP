@@ -1,0 +1,89 @@
+name: private-beta-ci
+
+on:
+  push:
+    branches:
+      - jobready-private-beta-polish
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    env:
+      JOBREADY_MODE: demo
+      NEXT_PUBLIC_JOBREADY_MODE: demo
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_PROJECT_PASS_INR: "499"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - name: npm audit (report only)
+        run: npm audit --audit-level=moderate || true
+
+  python-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e "reference/logistics-order-api[dev]"
+      - run: python -m pytest reference/logistics-order-api/tests -q
+      - run: python -m pip install pytest
+      - name: Starter repository contract
+        env:
+          PYTHONPATH: project-starters/logistics-order-api
+        run: python -m pytest project-starters/logistics-order-api/tests -q
+
+  visual-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      JOBREADY_MODE: demo
+      NEXT_PUBLIC_JOBREADY_MODE: demo
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_PROJECT_PASS_INR: "499"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm start > /tmp/jobready.log 2>&1 &
+      - name: Wait for server
+        run: curl --retry 30 --retry-delay 1 --retry-connrefused http://localhost:3000/
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+      - name: Desktop screenshots
+        run: |
+          mkdir -p screenshots/desktop screenshots/mobile
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/ screenshots/desktop/landing.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/analysis screenshots/desktop/analysis.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects screenshots/desktop/projects.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/desktop/mission-free.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects/logistics-backend/missions/m2 screenshots/desktop/paywall.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/dashboard screenshots/desktop/dashboard.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/settings screenshots/desktop/settings.png
+      - name: Mobile screenshots
+        run: |
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/ screenshots/mobile/landing.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/analysis screenshots/mobile/analysis.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/mobile/mission-free.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/dashboard screenshots/mobile/dashboard.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jobready-visual-smoke
+          path: screenshots
+      - name: Server log on failure
+        if: failure()
+        run: cat /tmp/jobready.log
