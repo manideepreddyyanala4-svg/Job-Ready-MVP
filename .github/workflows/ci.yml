@@ -45,7 +45,7 @@ jobs:
         run: python -m pytest project-starters/logistics-order-api/tests -q
 
   visual-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       JOBREADY_MODE: demo
       NEXT_PUBLIC_JOBREADY_MODE: demo
