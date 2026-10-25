@@ -67,19 +67,19 @@ jobs:
       - name: Desktop screenshots
         run: |
           mkdir -p screenshots/desktop screenshots/mobile
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/ screenshots/desktop/landing.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/analysis screenshots/desktop/analysis.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/projects screenshots/desktop/projects.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/desktop/mission-free.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/projects/logistics-backend/missions/m2 screenshots/desktop/paywall.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/dashboard screenshots/desktop/dashboard.png
-          npx --yes playwright@1.55.0 screenshot --device="Desktop Chrome" http://localhost:3000/settings screenshots/desktop/settings.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/ screenshots/desktop/landing.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/analysis screenshots/desktop/analysis.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects screenshots/desktop/projects.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/desktop/mission-free.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/projects/logistics-backend/missions/m2 screenshots/desktop/paywall.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/dashboard screenshots/desktop/dashboard.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="1440,1000" --full-page http://localhost:3000/settings screenshots/desktop/settings.png
       - name: Mobile screenshots
         run: |
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="iPhone 13" http://localhost:3000/ screenshots/mobile/landing.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="iPhone 13" http://localhost:3000/analysis screenshots/mobile/analysis.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="iPhone 13" http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/mobile/mission-free.png
-          npx --yes playwright@1.55.0 screenshot --browser=chromium --device="iPhone 13" http://localhost:3000/dashboard screenshots/mobile/dashboard.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/ screenshots/mobile/landing.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/analysis screenshots/mobile/analysis.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/projects/logistics-backend/missions/m1 screenshots/mobile/mission-free.png
+          npx --yes playwright@1.55.0 screenshot --browser=chromium --viewport-size="390,844" --full-page http://localhost:3000/dashboard screenshots/mobile/dashboard.png
       - uses: actions/upload-artifact@v4
         with:
           name: jobready-visual-smoke
