@@ -1,5 +1,6 @@
 export type RoleId = "backend" | "analyst" | "ml";
 export type EvidenceState = "strong" | "partial" | "missing";
+export type ProjectStatus = "available" | "planned";
 
 export type Role = {
   id: RoleId;
@@ -10,8 +11,16 @@ export type Role = {
   skills: string[];
 };
 
+export type MissionSummary = {
+  id: string;
+  title: string;
+  time: string;
+  free?: boolean;
+};
+
 export type Project = {
   id: string;
+  track: "Software / Backend" | "Data" | "AI / ML";
   family: string;
   title: string;
   description: string;
@@ -23,22 +32,20 @@ export type Project = {
   outcome: string;
   domain?: string;
   targetRole?: string;
+  targetRoleId?: RoleId;
   architecture?: string[];
   prerequisites?: string[];
-  missions: Mission[];
+  deploymentRequired?: boolean;
+  verificationLabel?: string;
+  status: ProjectStatus;
+  missions: MissionSummary[];
 };
 
-export type Mission = {
-  id: string;
-  title: string;
-  objective: string;
-  time: string;
-  free?: boolean;
-  concepts: string[];
-  deliverable: string;
-  why?: string;
-  resources?: string[];
-  hints?: string[];
+export type ResumeEvidence = {
+  skills: string[];
+  projects: string[];
+  links: string[];
+  experience?: string[];
 };
 
 export const roles: Role[] = [
@@ -68,64 +75,87 @@ export const roles: Role[] = [
   },
 ];
 
-const missionList: Mission[] = [
-  { id: "m1", title: "Understand the problem + setup", objective: "Turn the logistics brief into a clear build plan and get your local workspace ready.", time: "45 min", free: true, concepts: ["problem framing", "repository hygiene", "environment variables"], deliverable: "A one-page project brief and a running starter repository." },
-  { id: "m2", title: "Design the system and data model", objective: "Model customers, orders, shipments, and their status lifecycle before writing routes.", time: "90 min", concepts: ["entity relationships", "state machines", "PostgreSQL"], deliverable: "An ERD and migration plan with explained trade-offs." },
-  { id: "m3", title: "Authentication", objective: "Add secure identity and ownership checks to the API.", time: "2 hrs", concepts: ["sessions", "password hashing", "authorization"], deliverable: "Authenticated API endpoints and an authorization test." },
-  { id: "m4", title: "Core API implementation", objective: "Build the order and shipment flows with clear validation.", time: "3 hrs", concepts: ["REST design", "validation", "service boundaries"], deliverable: "Documented CRUD endpoints with validation errors." },
-  { id: "m5", title: "Business rules", objective: "Make status transitions predictable and defendable.", time: "2 hrs", concepts: ["domain rules", "idempotency", "edge cases"], deliverable: "A transition policy and tests for invalid moves." },
-  { id: "m6", title: "Testing", objective: "Build confidence with focused unit and integration tests.", time: "2 hrs", concepts: ["test pyramid", "fixtures", "API testing"], deliverable: "A meaningful test suite and coverage notes." },
-  { id: "m7", title: "Production concerns", objective: "Prepare the service to be observable and resilient.", time: "90 min", concepts: ["logging", "health checks", "error handling"], deliverable: "A production-readiness checklist." },
-  { id: "m8", title: "Docker", objective: "Package the API and database for repeatable local setup.", time: "90 min", concepts: ["containers", "compose", "configuration"], deliverable: "A working Docker Compose setup." },
-  { id: "m9", title: "Deployment", objective: "Create a credible deployment plan without hiding trade-offs.", time: "90 min", concepts: ["cloud basics", "secrets", "rollbacks"], deliverable: "An architecture diagram and deployment runbook." },
-  { id: "m10", title: "Documentation", objective: "Make your project easy for another engineer to run and review.", time: "60 min", concepts: ["README", "API docs", "decision records"], deliverable: "A polished README with setup and API examples." },
-  { id: "m11", title: "Review", objective: "Audit the project against the rubric and close the most important gaps.", time: "60 min", concepts: ["rubrics", "self-review", "scope"], deliverable: "A review log with before/after evidence." },
-  { id: "m12", title: "Project viva preparation", objective: "Practice explaining decisions, failures, and next steps in an interview.", time: "60 min", concepts: ["technical storytelling", "trade-offs", "reflection"], deliverable: "Answers to ten project viva questions." },
+const logisticsMissions: MissionSummary[] = [
+  { id: "m1", title: "Understand the problem + setup", time: "45 min", free: true },
+  { id: "m2", title: "Design the system and data model", time: "90 min" },
+  { id: "m3", title: "Authentication and authorization", time: "2 hrs" },
+  { id: "m4", title: "Core API implementation", time: "3 hrs" },
+  { id: "m5", title: "Business rules", time: "2 hrs" },
+  { id: "m6", title: "Testing", time: "2 hrs" },
+  { id: "m7", title: "Production concerns", time: "90 min" },
+  { id: "m8", title: "Docker", time: "90 min" },
+  { id: "m9", title: "Deployment", time: "90 min" },
+  { id: "m10", title: "Documentation", time: "60 min" },
+  { id: "m11", title: "Evidence review", time: "60 min" },
+  { id: "m12", title: "Project defense", time: "60 min" },
 ];
 
 export const projects: Project[] = [
   {
     id: "logistics-backend",
+    track: "Software / Backend",
     family: "Production Backend System",
     title: "Logistics Order & Delivery Management Backend",
     description: "A production-minded REST API for customers, orders, shipments, and delivery status.",
-    why: "You already have Python, SQL, Git, and basic Flask exposure. This project turns that foundation into visible backend evidence.",
+    why: "This project turns basic Python, SQL, Git, and API knowledge into visible backend evidence: data modeling, authorization, testing, containerization, deployment thinking, and project defense.",
     skills: ["REST API design", "PostgreSQL", "Authentication", "Testing", "Docker", "Deployment"],
     gaps: ["production API evidence", "database design", "testing", "deployment proof"],
     difficulty: "Intermediate",
     duration: "3–4 weeks",
-    outcome: "A portfolio-ready service with an architecture story you can defend in interviews.",
+    outcome: "A portfolio-ready service with an architecture story and evidence you can defend in interviews.",
     domain: "logistics",
     targetRole: "Backend / Software Engineer",
-    architecture: ["REST API", "PostgreSQL data layer", "Authentication boundary", "Dockerized deployment"],
+    targetRoleId: "backend",
+    architecture: ["Versioned REST API", "PostgreSQL data layer", "Authentication + ownership boundary", "Tests", "Dockerized local environment", "Deployment runbook"],
     prerequisites: ["Python or another backend language", "SQL fundamentals", "Git basics"],
-    missions: missionList,
+    deploymentRequired: true,
+    verificationLabel: "Rubric + artifact checks; hidden verifier architecture prepared",
+    status: "available",
+    missions: logisticsMissions,
   },
   {
     id: "retail-analytics",
+    track: "Data",
     family: "Business Analytics Decision System",
     title: "Retail Growth Decision System",
-    description: "Clean sales data, surface customer patterns, and turn insights into clear decisions.",
-    why: "Your SQL and Pandas foundation can become a complete business case with stronger communication evidence.",
+    description: "A controlled analytics project family for turning sales data into clear business decisions.",
+    why: "This family is designed to prove data cleaning, SQL, analysis, visualization, and decision communication. The full mission sequence is not yet validated for private beta.",
     skills: ["SQL", "Pandas", "Data cleaning", "Visualization", "Business reasoning"],
     gaps: ["dashboard evidence", "business communication", "repeatable analysis"],
     difficulty: "Intermediate",
     duration: "2–3 weeks",
-    outcome: "A case study with reproducible analysis, charts, and recommendations.",
-    missions: missionList.slice(0, 6),
+    outcome: "A reproducible analysis case study with clear recommendations.",
+    domain: "retail",
+    targetRole: "Data Analyst",
+    targetRoleId: "analyst",
+    architecture: ["Data ingestion", "Cleaning + transformation", "Analysis layer", "Decision-oriented reporting"],
+    prerequisites: ["Basic SQL", "Spreadsheet or Pandas basics"],
+    deploymentRequired: false,
+    verificationLabel: "Mission and verification design in progress",
+    status: "planned",
+    missions: [],
   },
   {
     id: "document-intelligence",
+    track: "AI / ML",
     family: "AI Document Intelligence System",
     title: "College Policy Document Assistant",
-    description: "A grounded document search assistant that answers questions with traceable sources.",
-    why: "Your ML curiosity and Python base get a focused, evaluable AI project instead of a generic chatbot.",
+    description: "A controlled AI project family for grounded retrieval, evaluation, serving, and deployment evidence.",
+    why: "This family is meant to prove evaluation and production thinking rather than chatbot novelty. The full mission sequence is not yet validated for private beta.",
     skills: ["Python", "Retrieval", "Evaluation", "API serving", "Deployment"],
     gaps: ["evaluation evidence", "serving a model", "production thinking"],
     difficulty: "Advanced",
     duration: "4–5 weeks",
-    outcome: "An AI system with an evaluation set, source citations, and latency notes.",
-    missions: missionList.slice(0, 7),
+    outcome: "A grounded system with an evaluation set, source citations, and latency notes.",
+    domain: "admissions",
+    targetRole: "AI / ML Engineer",
+    targetRoleId: "ml",
+    architecture: ["Document ingestion", "Retrieval", "Grounded answer layer", "Evaluation harness", "API serving"],
+    prerequisites: ["Python fundamentals", "Basic ML concepts"],
+    deploymentRequired: true,
+    verificationLabel: "Mission and verification design in progress",
+    status: "planned",
+    missions: [],
   },
 ];
 
@@ -139,67 +169,124 @@ export const demoStudent = {
   target: "Backend + AI / ML",
 };
 
-export const gaps = [
-  { label: "Production API design", state: "partial" as EvidenceState, detail: "You mention Flask, but there is no deployed API with documented decisions yet.", priority: "High" },
-  { label: "Docker & deployment", state: "missing" as EvidenceState, detail: "Knowledge is unknown; your current profile does not prove container or deployment experience.", priority: "High" },
-  { label: "Automated testing", state: "missing" as EvidenceState, detail: "No test suite or test strategy is visible in your resume or project links.", priority: "High" },
-  { label: "SQL & data handling", state: "strong" as EvidenceState, detail: "SQL and Pandas appear in your skills and are supported by project work.", priority: "Strong" },
-  { label: "Git workflow", state: "strong" as EvidenceState, detail: "Git is listed as an active tool in your profile.", priority: "Strong" },
-  { label: "System design basics", state: "partial" as EvidenceState, detail: "Your projects show implementation, but not yet the reasoning behind boundaries and trade-offs.", priority: "Medium" },
-];
+const skillAliases: Record<string, string[]> = {
+  "REST APIs": ["rest api", "api", "flask", "fastapi", "django"],
+  PostgreSQL: ["postgresql", "sql"],
+  Testing: ["testing", "pytest", "unit testing", "integration testing"],
+  Deployment: ["deployment", "render", "railway", "vercel", "aws", "azure", "gcp"],
+  "ML fundamentals": ["machine learning", "ml", "scikit-learn", "tensorflow", "pytorch"],
+  Evaluation: ["evaluation", "precision", "recall", "f1", "roc", "auc"],
+  APIs: ["api", "flask", "fastapi", "django"],
+  Visualization: ["visualization", "power bi", "tableau", "matplotlib"],
+  Statistics: ["statistics", "statistical"],
+  "Business thinking": ["business", "decision", "analysis"],
+};
 
-export function readinessScore() {
-  return { total: 58, categories: [
-    ["Technical foundations", 72],
-    ["Role-relevant skills", 61],
-    ["Project quality", 54],
-    ["Production evidence", 31],
-    ["Resume clarity", 66],
-    ["Proof of work", 48],
-  ] as [string, number][] };
+function normalizeSkills(skills: string[]) {
+  return skills.map((skill) => skill.toLowerCase());
 }
 
-export function readinessScoreFromResume(resume: { skills: string[]; projects: string[]; experience: string[]; links: string[] }) {
-  const skills = new Set(resume.skills.map((skill) => skill.toLowerCase()));
-  const has = (skill: string) => skills.has(skill.toLowerCase());
-  const technical = Math.min(100, 35 + resume.skills.length * 8);
-  const relevant = Math.min(100, 25 + ["python", "sql", "git", "pandas"].filter(has).length * 15);
-  const projects = Math.min(100, resume.projects.length * 28);
-  const production = Math.min(100, (has("docker") ? 30 : 0) + (has("postgresql") ? 25 : 0) + (resume.links.length ? 25 : 0));
-  const proof = Math.min(100, resume.projects.length * 20 + resume.links.length * 20 + resume.experience.length * 20);
+function hasEvidence(skills: string[], target: string) {
+  const normalized = normalizeSkills(skills);
+  const aliases = [target, ...(skillAliases[target] ?? [])].map((value) => value.toLowerCase());
+  return aliases.some((alias) => normalized.some((skill) => skill === alias || skill.includes(alias) || alias.includes(skill)));
+}
+
+export function readinessScore() {
+  return {
+    total: 58,
+    categories: [
+      ["Technical foundations", 72],
+      ["Role-relevant skills", 61],
+      ["Project quality", 54],
+      ["Production evidence", 31],
+      ["Resume clarity", 66],
+      ["Proof of work", 48],
+    ] as [string, number][],
+  };
+}
+
+export function readinessScoreFromResume(resume: ResumeEvidence) {
+  const technical = Math.min(100, 30 + resume.skills.length * 8);
+  const relevant = Math.min(100, 25 + ["Python", "SQL", "Git", "Pandas"].filter((skill) => hasEvidence(resume.skills, skill)).length * 15);
+  const projectQuality = Math.min(100, resume.projects.length * 28);
+  const production = Math.min(
+    100,
+    (hasEvidence(resume.skills, "Docker") ? 25 : 0) +
+      (hasEvidence(resume.skills, "PostgreSQL") ? 20 : 0) +
+      (hasEvidence(resume.skills, "Testing") ? 20 : 0) +
+      (hasEvidence(resume.skills, "Deployment") ? 20 : 0) +
+      (resume.links.length ? 15 : 0),
+  );
+  const proof = Math.min(100, resume.projects.length * 20 + resume.links.length * 20 + (resume.experience?.length ?? 0) * 20);
   const categories: [string, number][] = [
     ["Technical foundations", technical],
     ["Role-relevant skills", relevant],
-    ["Project quality", projects],
+    ["Project quality", projectQuality],
     ["Production evidence", production],
-    ["Resume clarity", resume.skills.length ? 60 : 20],
+    ["Resume clarity", resume.skills.length || resume.projects.length ? 60 : 20],
     ["Proof of work", proof],
   ];
   const total = Math.round(categories.reduce((sum, [, value]) => sum + value, 0) / categories.length);
   return { total, categories };
 }
 
+export function readinessLevel(score: number) {
+  if (score >= 75) return "Strong evidence";
+  if (score >= 55) return "Developing evidence";
+  return "Early evidence";
+}
+
 export function roleScore(role: RoleId) {
   return role === "backend" ? 64 : role === "ml" ? 59 : 46;
 }
 
-export function roleScoreFromResume(role: RoleId, resume: { skills: string[]; projects: string[]; links: string[] }) {
-  const available = new Set(resume.skills.map((skill) => skill.toLowerCase()));
+export function roleScoreFromResume(role: RoleId, resume: ResumeEvidence) {
   const target = roles.find((item) => item.id === role)?.skills ?? [];
-  const covered = target.filter((skill) => available.has(skill.toLowerCase())).length;
+  if (!target.length) return 0;
+  const covered = target.filter((skill) => hasEvidence(resume.skills, skill)).length;
   const evidenceBonus = Math.min(20, resume.projects.length * 8 + resume.links.length * 6);
   return Math.min(100, Math.round((covered / target.length) * 80 + evidenceBonus));
 }
 
-export function gapsFromResume(resume: { skills: string[]; projects: string[]; links: string[] }) {
-  const available = new Set(resume.skills.map((skill) => skill.toLowerCase()));
-  const has = (skill: string) => available.has(skill.toLowerCase());
+export function roleEvidenceFromResume(role: RoleId, resume: ResumeEvidence) {
+  const target = roles.find((item) => item.id === role)?.skills ?? [];
+  const strong = target.filter((skill) => hasEvidence(resume.skills, skill));
+  const missing = target.filter((skill) => !hasEvidence(resume.skills, skill));
+  return { strong, missing };
+}
+
+export const gaps = gapsFromResume(
+  { skills: demoStudent.skills, projects: demoStudent.projects, links: [] },
+  "backend",
+);
+
+export function gapsFromResume(resume: ResumeEvidence, roleId: RoleId = "backend") {
+  const has = (skill: string) => hasEvidence(resume.skills, skill);
+  if (roleId === "analyst") {
+    return [
+      { label: "SQL & data handling", state: has("SQL") || has("Pandas") ? "strong" : "missing", detail: "SQL or Pandas evidence is visible when it appears in your structured resume.", priority: "High" },
+      { label: "Dashboard / visualization", state: has("Visualization") ? "strong" : "missing", detail: "No decision-oriented dashboard or visualization tool is clearly evidenced yet.", priority: "High" },
+      { label: "Statistics", state: has("Statistics") ? "strong" : "missing", detail: "Statistical reasoning is scored only when it is visible in the resume evidence.", priority: "Medium" },
+      { label: "Business communication", state: resume.projects.length ? "partial" : "missing", detail: "Projects exist, but the profile does not yet show how findings became a decision.", priority: "High" },
+      { label: "Reproducible analysis", state: has("Git") && resume.projects.length ? "partial" : "missing", detail: "A repeatable analysis workflow is not clearly proven by the current profile.", priority: "Medium" },
+    ] as const;
+  }
+  if (roleId === "ml") {
+    return [
+      { label: "ML foundations", state: has("ML fundamentals") ? "strong" : "missing", detail: "Framework or machine-learning evidence is visible only when detected in the resume.", priority: "High" },
+      { label: "Evaluation", state: has("Evaluation") ? "strong" : "missing", detail: "Model evaluation evidence is not clearly visible yet.", priority: "High" },
+      { label: "API serving", state: has("APIs") ? "partial" : "missing", detail: "A framework mention helps, but deployed serving evidence is stronger.", priority: "High" },
+      { label: "Deployment", state: has("Deployment") || has("Docker") ? "partial" : "missing", detail: "The profile does not yet prove a repeatable model deployment path.", priority: "High" },
+      { label: "Git / proof of work", state: has("Git") || resume.links.length ? "strong" : "missing", detail: "Repository or version-control evidence helps reviewers inspect your work.", priority: "Medium" },
+    ] as const;
+  }
   return [
-    { label: "Production API design", state: has("Flask") || has("Django") ? "partial" : "missing", detail: "An API framework is visible, but a deployed, documented service is not yet proven.", priority: "High" },
-    { label: "Docker & deployment", state: has("Docker") || resume.links.length > 0 ? "partial" : "missing", detail: "Container and deployment evidence is not visible in the structured resume yet.", priority: "High" },
-    { label: "Automated testing", state: "missing", detail: "No test suite or test strategy is visible in the current resume evidence.", priority: "High" },
-    { label: "SQL & data handling", state: has("SQL") || has("Pandas") ? "strong" : "missing", detail: "SQL/Pandas evidence is visible in the structured profile.", priority: "Strong" },
+    { label: "Production API design", state: has("REST APIs") ? "partial" : "missing", detail: "A framework or API skill is visible, but a deployed, documented service is stronger evidence.", priority: "High" },
+    { label: "Docker & deployment", state: has("Docker") || has("Deployment") ? "partial" : "missing", detail: "Container or deployment evidence is not clearly visible in the current structured resume.", priority: "High" },
+    { label: "Automated testing", state: has("Testing") ? "strong" : "missing", detail: "A test suite or testing skill must be visible before JobReady treats it as evidence.", priority: "High" },
+    { label: "SQL & data handling", state: has("SQL") || has("Pandas") ? "strong" : "missing", detail: "SQL or data-handling evidence is visible in the structured profile.", priority: "Strong" },
     { label: "Git workflow", state: has("Git") ? "strong" : "missing", detail: "Git is visible as a tool in the structured profile.", priority: "Strong" },
-    { label: "System design basics", state: resume.projects.length ? "partial" : "missing", detail: "Projects are visible, but system boundaries and trade-offs are not yet evidenced.", priority: "Medium" },
+    { label: "System design basics", state: resume.projects.length ? "partial" : "missing", detail: "Projects are visible, but system boundaries and trade-offs are not yet clearly evidenced.", priority: "Medium" },
   ] as const;
 }
