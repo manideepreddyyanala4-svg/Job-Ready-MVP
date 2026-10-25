@@ -52,9 +52,11 @@ export default function GapsPage() {
     if (saved) {
       try { target = (JSON.parse(saved) as { roles?: string[] }).roles?.find((role) => roleNameToId[role]) ?? target; } catch { /* ignore */ }
     }
-    setRoleName(target);
-    setGaps(gapsFromResume(local, roleNameToId[target] ?? "backend") as GapView[]);
-    setLoaded(true);
+    queueMicrotask(() => {
+      setRoleName(target);
+      setGaps(gapsFromResume(local, roleNameToId[target] ?? "backend") as GapView[]);
+      setLoaded(true);
+    });
   }, []);
 
   const highValue = gaps.filter((gap) => gap.state !== "strong" && gap.priority === "High").slice(0, 3);
