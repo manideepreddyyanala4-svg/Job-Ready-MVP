@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     .eq("variant_id", registry.variantId)
     .maybeSingle();
 
-  if (!enrollment) return NextResponse.json({ ok: true, progress: [] });
+  if (!enrollment) return NextResponse.json({ ok: true, enrolled: false, progress: [] });
 
   const { data, error } = await auth.client
     .from("mission_progress")
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     completed_at: row.completed_at,
     hint_usage: row.hint_usage,
   }));
-  return NextResponse.json({ ok: true, progress });
+  return NextResponse.json({ ok: true, enrolled: true, progress });
 }
 
 export async function POST(request: Request) {
