@@ -1,56 +1,71 @@
 import { describe, expect, it } from "vitest";
-import { gapsFromResume, readinessScoreFromResume, roleScoreFromResume, roles } from "@/lib/domain";
+import { gapsFromResume, projects, readinessScoreFromResume, roleEvidenceFromResume, roleScoreFromResume, roles } from "@/lib/domain";
 import { parseStructuredResume } from "@/lib/resume";
 import { recommendProjects } from "@/lib/recommendations";
 
 const backend = { skills: ["Python", "SQL", "Flask", "Git"], projects: ["API"], links: [], experience: [] };
 const analyst = { skills: ["SQL", "Pandas", "Excel", "Power BI"], projects: ["Sales dashboard"], links: [], experience: [] };
-const ml = { skills: ["Python", "Pandas", "ML fundamentals", "Evaluation", "APIs"], projects: ["Classifier"], links: ["https://github.com/student"], experience: [] };
+const ml = { skills: ["Python", "Pandas", "Machine Learning", "Evaluation", "FastAPI"], projects: ["Classifier"], links: ["https://github.com/student"], experience: [] };
 const beginner = { skills: [], projects: [], links: [], experience: [] };
-const strong = { skills: ["Python", "SQL", "Docker", "PostgreSQL", "Git", "Flask"], projects: ["API", "Dashboard"], links: ["https://github.com/student"], experience: ["Internship"] };
+const strong = { skills: ["Python", "SQL", "Docker", "PostgreSQL", "Git", "Flask", "pytest", "AWS"], projects: ["API", "Dashboard"], links: ["https://github.com/student"], experience: ["Internship"] };
 
 describe("structured resume parsing", () => {
-  it("extracts skills, projects, education, and links deterministically", () => {
+  it("extracts structured evidence without persisting raw extracted text", () => {
     const parsed = parseStructuredResume("B.Tech CSE Python SQL Git Projects: expense tracker https://github.com/arjun", "resume.pdf");
     expect(parsed.skills).toEqual(expect.arrayContaining(["Python", "SQL", "Git"]));
     expect(parsed.projects).toHaveLength(1);
     expect(parsed.github).toContain("github.com");
     expect(parsed.education[0]).toMatch(/B\.Tech/i);
+    expect(parsed).not.toHaveProperty("rawText");
+    expect(["low", "medium", "high"]).toContain(parsed.parseConfidence);
   });
 });
 
 describe("readiness scoring", () => {
-  it("changes as evidence improves", () => {
+  it("changes as inspectable evidence improves", () => {
     expect(readinessScoreFromResume(strong).total).toBeGreaterThan(readinessScoreFromResume(beginner).total);
     expect(readinessScoreFromResume(strong).categories.find(([name]) => name === "Production evidence")?.[1]).toBeGreaterThan(0);
   });
 });
 
 describe("role matching", () => {
-  it("ranks role evidence differently across profile fixtures", () => {
+  it("ranks supported role evidence differently across profile fixtures", () => {
     expect(roleScoreFromResume("backend", backend)).toBeGreaterThan(roleScoreFromResume("analyst", backend));
     expect(roleScoreFromResume("analyst", analyst)).toBeGreaterThan(roleScoreFromResume("backend", analyst));
     expect(roleScoreFromResume("ml", ml)).toBeGreaterThan(roleScoreFromResume("analyst", ml));
+    expect(roleEvidenceFromResume("backend", backend).strong).toContain("Python");
     expect(roles).toHaveLength(3);
   });
 });
 
-describe("evidence classification and gaps", () => {
-  it("moves production evidence from missing to partial/strong", () => {
-    const weak = gapsFromResume(beginner);
-    const strongGaps = gapsFromResume(strong);
-    expect(weak.find((gap) => gap.label === "Docker & deployment")?.state).toBe("missing");
-    expect(strongGaps.find((gap) => gap.label === "Docker & deployment")?.state).toBe("partial");
-    expect(strongGaps.find((gap) => gap.label === "SQL & data handling")?.state).toBe("strong");
+describe("evidence classification", () => {
+  it("uses role-specific gaps and separates missing from partial evidence", () => {
+    const weakBackend = gapsFromResume(beginner, "backend");
+    const strongBackend = gapsFromResume(strong, "backend");
+    const dataGaps = gapsFromResume(analyst, "analyst");
+    expect(weakBackend.find((gap) => gap.label === "Docker & deployment")?.state).toBe("missing");
+    expect(strongBackend.find((gap) => gap.label === "Docker & deployment")?.state).toBe("partial");
+    expect(strongBackend.find((gap) => gap.label === "Automated testing")?.state).toBe("strong");
+    expect(dataGaps.find((gap) => gap.label === "Dashboard / visualization")?.state).toBe("strong");
   });
 });
 
-describe("project recommendations", () => {
-  it("prioritizes the preferred role and explains matched gaps", () => {
-    const result = recommendProjects({ ...backend, preferredRoles: ["backend"], weeklyHours: "8–12 hours per week" });
-    expect(result[0].project.family).toBe("Production Backend System");
-    expect(result[0].recommendationScore).toBeGreaterThan(result[1].recommendationScore);
-    expect(result[0].matchedEvidenceGaps.length).toBeGreaterThan(0);
-    expect(result[0].explanation).toContain("recommended");
+describe("controlled project catalog", () => {
+  it("does not expose protected mission detail through public project metadata", () => {
+    const logistics = projects.find((project) => project.id === "logistics-backend")!;
+    expect(logistics.status).toBe("available");
+    expect(logistics.missions).toHaveLength(12);
+    expect(logistics.missions[1]).not.toHaveProperty("objective");
+    expect(projects.filter((project) => project.status === "planned")).toHaveLength(2);
+  });
+
+  it("recommends only validated available projects", () => {
+    const backendResults = recommendProjects({ ...backend, preferredRoles: ["backend"], weeklyHours: "8–12 hours per week" });
+    expect(backendResults).toHaveLength(1);
+    expect(backendResults[0].project.id).toBe("logistics-backend");
+    expect(backendResults[0].project.status).toBe("available");
+
+    const mlResults = recommendProjects({ ...ml, preferredRoles: ["ml"], weeklyHours: "8–12 hours per week" });
+    expect(mlResults).toHaveLength(0);
   });
 });
