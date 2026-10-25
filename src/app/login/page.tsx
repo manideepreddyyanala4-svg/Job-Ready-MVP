@@ -1,36 +1,32 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Alert, Button, Card, InputField } from "@/components/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export default function Login() {
-  const router = useRouter(); const [email, setEmail] = useState("arjun@example.com");
+  const router = useRouter();
+  const production = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.NEXT_PUBLIC_JOBREADY_MODE === "production");
+  const [email, setEmail] = useState(production ? "" : "arjun@example.com");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const production = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.NEXT_PUBLIC_JOBREADY_MODE === "production");
+  const [sent, setSent] = useState(false);
+
   const submit = async () => {
-    if (!email.trim() || !email.includes("@")) {
-      setError("Enter a valid email address to continue.");
-      return;
-    }
+    setError(""); setSent(false);
+    if (!email.trim() || !email.includes("@")) { setError("Enter a valid email address to continue."); return; }
     if (production) {
       setBusy(true);
       const client = getSupabaseBrowserClient();
-      const { error: authError } = await client!.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-      });
+      const { error: authError } = await client!.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } });
       setBusy(false);
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-      setError("Check your email for a secure sign-in link.");
-      return;
+      if (authError) { setError("We couldn't send the sign-in link. Please try again."); return; }
+      setSent(true); return;
     }
-    localStorage.setItem("jobready-user", email.trim());
-    router.push("/onboarding");
+    localStorage.setItem("jobready-user", email.trim()); router.push("/onboarding");
   };
-  return <main className="container" style={{padding:"70px 0", maxWidth:560}}><Link href="/" style={{fontWeight:800, fontSize:20}}><span style={{color:"var(--orange)"}}>●</span> jobready</Link><div className="card" style={{padding:32, marginTop:60}}><div className="eyebrow">Start with a clear baseline</div><h1 className="serif" style={{fontSize:42, margin:"10px 0"}}>Check your job readiness.</h1><p style={{color:"var(--muted)", lineHeight:1.5}}>{production ? "Sign in with a secure magic link. Your profile and progress are stored in your account." : "Use the demo account to explore the complete V0 flow. Your progress is stored locally in this browser."}</p><label style={{display:"block", marginTop:24, fontSize:13, fontWeight:700}}>Email<input value={email} onChange={e=>{setEmail(e.target.value);setError("");}} type="email" autoComplete="email" style={{display:"block", width:"100%", marginTop:8, padding:13, border:"1px solid var(--line)", borderRadius:9}}/></label>{error&&<p role="alert" style={{color:"#b23b2e",fontSize:13}}>{error}</p>}<button className="btn btn-primary" style={{width:"100%", marginTop:18}} onClick={submit} disabled={busy}>{busy ? "Sending secure link…" : production ? "Send secure sign-in link →" : "Continue with demo account →"}</button><p style={{fontSize:12, color:"var(--muted)", textAlign:"center", marginTop:18}}>{production ? "Supabase Auth handles the session; no password is stored by JobReady." : "Supabase Auth adapter is ready for production credentials. No password is stored by this demo."}</p></div></main>;
+
+  return <main className="reading-container" style={{ padding: "48px 0 72px" }}><Link href="/" className="app-brand" style={{ padding: 0 }}><span className="app-brand-mark" aria-hidden="true" />jobready</Link><Card className="card-pad" style={{ marginTop: 42 }}><div className="eyebrow">Start with a clear baseline</div><h1 className="page-title" style={{ fontSize: 38 }}>Check your job readiness.</h1><p className="secondary-text">{production ? "Sign in with a secure magic link. Your profile and progress stay connected to your account." : "Use the demo account to explore the full JobReady flow in this browser."}</p><div style={{ marginTop: 22 }}><InputField id="email" label="Email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} helper={production ? "We'll email you a secure sign-in link." : "The demo account is prefilled for local exploration."} /></div>{error && <div style={{ marginTop: 14 }}><Alert tone="error">{error}</Alert></div>}{sent && <div style={{ marginTop: 14 }}><Alert tone="success">Check your email for the secure sign-in link.</Alert></div>}<Button block size="lg" onClick={submit} disabled={busy} style={{ marginTop: 18 }}>{busy ? "Sending secure link…" : production ? "Send secure sign-in link →" : "Continue with demo account →"}</Button><p className="helper-text" style={{ textAlign: "center", marginBottom: 0 }}>{production ? "Supabase Auth handles the session; JobReady does not store a password." : "Demo progress is local to this browser."}</p></Card></main>;
 }
