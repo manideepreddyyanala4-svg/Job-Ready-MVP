@@ -6,8 +6,6 @@ import { requireSupabaseUser } from "@/lib/supabase/server";
 import { demoLogisticsMissionDetails, missionDetailFromDefinition, type MissionDetail } from "@/lib/mission-content";
 import { projectRegistryEntry } from "@/lib/project-registry";
 
-export const dynamic = "force-dynamic";
-
 type Params = Promise<{ projectId: string; missionId: string }>;
 
 export default async function MissionRoute({ params }: { params: Params }) {
