@@ -57,7 +57,10 @@ export default function Onboarding() {
     if (!production) {
       const draft = window.localStorage.getItem("jobready-onboarding-draft");
       if (draft) {
-        try { setProfile(JSON.parse(draft) as StudentProfile); } catch { /* ignore malformed demo state */ }
+        try {
+          const parsed = JSON.parse(draft) as StudentProfile;
+          queueMicrotask(() => setProfile(parsed));
+        } catch { /* ignore malformed demo state */ }
       }
       return;
     }
