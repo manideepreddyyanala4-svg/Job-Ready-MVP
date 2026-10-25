@@ -15,6 +15,7 @@ type DashboardState = {
   projectTitle: string | null;
   completed: number;
   hasResume: boolean;
+  hasProject: boolean;
 };
 
 const production = process.env.NEXT_PUBLIC_JOBREADY_MODE === "production";
@@ -29,6 +30,7 @@ export default function Dashboard() {
     projectTitle: null,
     completed: 0,
     hasResume: false,
+    hasProject: false,
   });
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
@@ -48,7 +50,7 @@ export default function Dashboard() {
           recommendations?: Array<{ project_variants?: { definition?: { title?: string } } }>;
           resume?: StructuredResume | null;
         },
-        { progress?: Array<{ completed_at: string | null }> },
+        { enrolled?: boolean; progress?: Array<{ completed_at: string | null }> },
       ]) => {
         setState({
           name: profileResult.profile?.full_name ?? "",
@@ -58,6 +60,7 @@ export default function Dashboard() {
           projectTitle: analysisResult.recommendations?.[0]?.project_variants?.definition?.title ?? null,
           completed: progressResult.progress?.filter((item) => item.completed_at).length ?? 0,
           hasResume: Boolean(analysisResult.resume),
+          hasProject: Boolean(progressResult.enrolled),
         });
       }).catch(() => setError("Some dashboard data could not be loaded."))
         .finally(() => setLoaded(true));
@@ -77,6 +80,7 @@ export default function Dashboard() {
       projectTitle: activeProject.title,
       completed: completedMissionCount(activeProject.id, activeProject.missions.map((mission) => mission.id)),
       hasResume: Boolean(resume),
+      hasProject: Boolean(window.localStorage.getItem("jobready-enrolled:" + activeProject.id)),
     };
     queueMicrotask(() => {
       setState(nextState);
@@ -105,18 +109,30 @@ export default function Dashboard() {
           <div>
             <div className="eyebrow" style={{ color: "#ffb495" }}>Next action</div>
             <h2 style={{ fontSize: 32, margin: "10px 0 8px" }}>
-              {!state.hasResume ? "Upload your resume and create the evidence baseline." : state.completed === 0 ? "Start the first validated project mission." : "Continue: " + nextMission.title}
+              {!state.hasResume
+                ? "Upload your resume and create the evidence baseline."
+                : !state.hasProject
+                  ? "Choose the validated project that closes your highest-value gaps."
+                  : state.completed === 0
+                    ? "Continue your active project with Mission 1."
+                    : "Continue: " + nextMission.title}
             </h2>
             <p className="muted">
               {!state.hasResume
                 ? "JobReady needs your structured profile before it can explain role fit and evidence gaps."
-                : state.completed === 0
-                  ? "Mission 1 turns the logistics problem into a scoped plan before you write implementation code."
-                  : "Continue building the same evidence path instead of starting another unrelated project."}
+                : !state.hasProject
+                  ? "Review the recommendation and select a project before JobReady starts showing project progress."
+                  : state.completed === 0
+                    ? "Mission 1 turns the logistics problem into a scoped plan before you write implementation code."
+                    : "Continue building the same evidence path instead of starting another unrelated project."}
             </p>
           </div>
           <div style={{ justifySelf: "end" }}>
-            {!state.hasResume ? <Link href="/resume" className="btn btn-primary">Add resume →</Link> : <Link href={"/projects/" + activeProject.id + "/missions/" + nextMission.id} className="btn btn-primary">{state.completed === 0 ? "Start Mission 1 →" : "Continue mission →"}</Link>}
+            {!state.hasResume
+              ? <Link href="/resume" className="btn btn-primary">Add resume →</Link>
+              : !state.hasProject
+                ? <Link href="/projects" className="btn btn-primary">Review project fit →</Link>
+                : <Link href={"/projects/" + activeProject.id + "/missions/" + nextMission.id} className="btn btn-primary">{state.completed === 0 ? "Open Mission 1 →" : "Continue mission →"}</Link>}
           </div>
         </div>
       </section>
@@ -150,11 +166,21 @@ export default function Dashboard() {
         </section>
 
         <section className="card">
-          <div className="split"><div className="eyebrow">Project progress</div><strong>{progress}%</strong></div>
-          <h2 style={{ margin: "10px 0 8px" }}>{state.projectTitle ?? activeProject.title}</h2>
-          <div className="progress-track"><div className="progress-fill progress-fill-accent" style={{ width: progress + "%" }} /></div>
-          <p className="small muted">{state.completed} of {activeProject.missions.length} missions complete.</p>
-          <Link href={"/projects/" + activeProject.id} className="btn btn-secondary">Project overview →</Link>
+          <div className="eyebrow">Project progress</div>
+          {state.hasProject ? (
+            <>
+              <div className="split" style={{ marginTop: 8 }}><h2 style={{ margin: 0 }}>{activeProject.title}</h2><strong>{progress}%</strong></div>
+              <div className="progress-track" style={{ marginTop: 14 }}><div className="progress-fill progress-fill-accent" style={{ width: progress + "%" }} /></div>
+              <p className="small muted">{state.completed} of {activeProject.missions.length} missions complete.</p>
+              <Link href={"/projects/" + activeProject.id} className="btn btn-secondary">Project overview →</Link>
+            </>
+          ) : (
+            <>
+              <h2 style={{ margin: "10px 0 8px" }}>No active project yet.</h2>
+              <p className="small muted">{state.projectTitle ? "You have a validated recommendation ready to review." : "Choose a project only after your evidence gaps are clear."}</p>
+              <Link href="/projects" className="btn btn-secondary">Review projects →</Link>
+            </>
+          )}
         </section>
       </div>
     </AppShell>
