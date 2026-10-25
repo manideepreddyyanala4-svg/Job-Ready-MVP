@@ -3,6 +3,7 @@
 import { ChangeEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { Alert, Badge, Button, FileUploadArea, PageHeader } from "@/components/ui";
 import { demoResume, StructuredResume } from "@/lib/resume";
 import { saveStructuredResume } from "@/lib/demo-storage";
 
@@ -30,43 +31,30 @@ export default function Resume() {
 
   const analyze = async () => {
     setError("");
-    if (!file) {
-      setError("Choose a PDF or select the demo resume before continuing.");
-      return;
-    }
+    if (!file) { setError("Choose a PDF or select the demo resume before continuing."); return; }
     setProcessing(true);
-    const formData = new FormData();
-    formData.append("resume", file);
-    const response = await fetch("/api/resume/process", { method: "POST", body: formData });
-    const result = await response.json() as { ok: boolean; resume?: StructuredResume; message?: string };
-    setProcessing(false);
-    if (!response.ok || !result.ok || !result.resume) {
-      setError(result.message ?? "The resume could not be processed.");
-      return;
-    }
-    saveAndAnalyze(result.resume);
+    try {
+      const formData = new FormData();
+      formData.append("resume", file);
+      const response = await fetch("/api/resume/process", { method: "POST", body: formData });
+      const result = await response.json() as { ok: boolean; resume?: StructuredResume; message?: string };
+      if (!response.ok || !result.ok || !result.resume) { setError(result.message ?? "The resume could not be processed."); return; }
+      saveAndAnalyze(result.resume);
+    } catch {
+      setError("We couldn't process that resume. Try again or use the demo resume.");
+    } finally { setProcessing(false); }
   };
 
-  const useDemoResume = () => {
-    saveAndAnalyze(demoResume);
-  };
-
-  return <AppShell><main className="container" style={{ padding: "64px 0", maxWidth: 760 }}>
-    <div className="eyebrow">Your evidence baseline</div>
-    <h1 className="serif" style={{ fontSize: 54, margin: "10px 0 14px" }}>Add your resume.</h1>
-    <p style={{ color: "var(--muted)", lineHeight: 1.6 }}>We extract structure first, then score evidence. Missing text never means missing knowledge.</p>
-    <div className="card" style={{ padding: 36, marginTop: 30, textAlign: "center", borderStyle: "dashed" }}>
-      <div style={{ fontSize: 44 }}>↑</div>
-      <h3>Choose a PDF resume</h3>
-      <p style={{ color: "var(--muted)", fontSize: 14 }}>PDF only · up to 5 MB · private by default</p>
-      <input type="file" accept=".pdf,application/pdf" onChange={selectResume} style={{ margin: "16px auto", display: "block" }} />
-      {selectedName && <p className="tag" style={{ margin: "8px auto 16px", width: "fit-content" }}>{selectedName}</p>}
-      {error && <p role="alert" style={{ color: "#b23b2e", fontSize: 13 }}>{error}</p>}
-      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-        <button type="button" className="btn btn-ghost" onClick={useDemoResume}>Use demo resume</button>
-        <button type="button" className="btn btn-primary" onClick={analyze} disabled={processing}>{processing ? "Extracting resume…" : "Analyze resume →"}</button>
-      </div>
-    </div>
-    <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 18 }}>{process.env.NEXT_PUBLIC_JOBREADY_MODE === "production" ? "Your PDF and structured analysis are stored in your authenticated Supabase account." : "Uploads are processed deterministically in this local MVP. Production storage and authenticated server processing are adapter-ready."}</p>
+  return <AppShell><main className="app-page app-page-narrow">
+    <PageHeader eyebrow="Profile evidence" title="Add your resume." description="We extract structure first, then score visible evidence. Missing text never means missing knowledge." />
+    <FileUploadArea>
+      <div aria-hidden="true" style={{ fontSize: 30, lineHeight: 1 }}>↑</div>
+      <div><h2 className="card-title">Choose a PDF resume</h2><p className="helper-text" style={{ margin: "5px 0 0" }}>PDF only · up to 5 MB · private by default</p></div>
+      <input type="file" accept=".pdf,application/pdf" onChange={selectResume} aria-label="Choose resume PDF" />
+      {selectedName && <Badge tone="info">{selectedName}</Badge>}
+      {error && <Alert tone="error">{error}</Alert>}
+      <div className="cluster" style={{ justifyContent: "center" }}><Button variant="ghost" onClick={() => saveAndAnalyze(demoResume)}>Use demo resume</Button><Button onClick={analyze} disabled={processing}>{processing ? "Extracting resume…" : "Analyze resume →"}</Button></div>
+    </FileUploadArea>
+    <p className="helper-text" style={{ marginTop: 14 }}>{process.env.NEXT_PUBLIC_JOBREADY_MODE === "production" ? "Your PDF and structured analysis are stored in your authenticated account." : "Uploads are processed deterministically in this local MVP. Production storage remains behind the authenticated Supabase boundary."}</p>
   </main></AppShell>;
 }

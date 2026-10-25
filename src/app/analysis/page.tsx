@@ -1,35 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AppShell, PageTitle } from "@/components/AppShell";
+import { AppShell } from "@/components/AppShell";
+import { Badge, Button, Card, ErrorState, LoadingState, PageHeader, ProgressBar, ScoreDisplay, Tabs } from "@/components/ui";
 import { readinessScore, readinessScoreFromResume } from "@/lib/domain";
 import { loadStructuredResume } from "@/lib/demo-storage";
 import { StructuredResume } from "@/lib/resume";
 
+const readinessTabs = [{ href: "/analysis", label: "Overview" }, { href: "/roles", label: "Role matches" }, { href: "/gaps", label: "Evidence gaps" }];
+
 export default function Analysis() {
   const [score, setScore] = useState(readinessScore());
   const [source, setSource] = useState<"demo" | "upload">("demo");
+  const [loading, setLoading] = useState(process.env.NEXT_PUBLIC_JOBREADY_MODE === "production");
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
+    setFailed(false);
     if (process.env.NEXT_PUBLIC_JOBREADY_MODE === "production") {
+      setLoading(true);
       void fetch("/api/analysis")
-        .then((response) => response.json())
+        .then((response) => { if (!response.ok) throw new Error("load"); return response.json(); })
         .then((result: { readiness?: { score: number; breakdown: [string, number][] }; resume?: StructuredResume | null }) => {
           if (result.readiness) setScore({ total: result.readiness.score, categories: result.readiness.breakdown });
           if (result.resume?.source) setSource(result.resume.source);
         })
-        .catch(() => undefined);
+        .catch(() => setFailed(true))
+        .finally(() => setLoading(false));
       return;
     }
-    const timer = window.setTimeout(() => {
-      const resume = loadStructuredResume<StructuredResume>();
-      if (resume) {
-        setScore(readinessScoreFromResume(resume));
-        setSource(resume.source);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+    const resume = loadStructuredResume<StructuredResume>();
+    if (resume) { setScore(readinessScoreFromResume(resume)); setSource(resume.source); }
+  };
 
-  return <AppShell><main className="container" style={{ padding: "54px 0" }}><PageTitle eyebrow={`Analysis · ${source === "demo" ? "demo resume" : "uploaded resume"}`} title="Your profile has a solid start. Now make it believable." body="This report scores visible evidence across the things an early-career engineer is expected to explain. It does not predict hiring outcomes." /><div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}><div className="card" style={{ padding: 28, display: "flex", alignItems: "center", gap: 24 }}><div style={{ width: 130, height: 130, borderRadius: "50%", display: "grid", placeItems: "center", background: "#eaf4f1", border: "13px solid #f2ad72", fontSize: 42, fontWeight: 800 }}>{score.total}</div><div><b style={{ fontSize: 18 }}>Job Readiness Score</b><p style={{ color: "var(--muted)", lineHeight: 1.5, fontSize: 14 }}>A deterministic baseline for evidence visible in the structured profile.</p></div></div><div className="card" style={{ padding: 28 }}><h3 style={{ marginTop: 0 }}>How to read this</h3><p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>A strong score means evidence is visible. A low score can mean either a knowledge gap or simply an evidence gap. We keep those separate.</p><span className="tag">Evidence, not probability</span></div></div><div className="card" style={{ padding: 28, marginTop: 18 }}><h3 style={{ marginTop: 0 }}>Score breakdown</h3>{score.categories.map(([label, value]) => <div key={label} style={{ margin: "22px 0" }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 700 }}><span>{label}</span><span>{value}/100</span></div><div style={{ height: 10, background: "#e5ece8", borderRadius: 10, marginTop: 8 }}><div style={{ width: `${value}%`, height: "100%", background: value < 50 ? "var(--orange)" : "var(--navy)", borderRadius: 10 }} /></div></div>)}</div></main></AppShell>;
+  useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, []);
+
+  return <AppShell><main className="app-page">
+    <Tabs items={readinessTabs} activePath="/analysis" className="mobile-section-tabs" />
+    <PageHeader eyebrow={`Readiness · ${source === "demo" ? "demo resume" : "uploaded resume"}`} title="Understand what your profile proves today." description="This report scores visible evidence. It does not predict hiring outcomes, and a low score can mean missing proof rather than missing knowledge." actions={<Button href="/resume" variant="ghost">Update resume</Button>} />
+    {loading ? <LoadingState label="Loading readiness analysis" /> : failed ? <ErrorState body="We couldn't load your readiness analysis. Your saved profile has not been changed." retry={load} /> : <>
+      <div className="two-column">
+        <Card className="card-pad"><ScoreDisplay value={score.total} label="Job readiness score" description="Use this as a baseline for visible evidence, not as a hiring probability." /></Card>
+        <Card className="card-pad"><h2 className="card-title">How to read this</h2><p className="secondary-text">A strong score means evidence is visible. A low score can mean a knowledge gap or simply an evidence gap. JobReady keeps those separate.</p><Badge tone="info">Evidence, not probability</Badge></Card>
+      </div>
+      <Card className="card-pad" style={{ marginTop: 20 }}>
+        <h2 className="card-title">Score breakdown</h2>
+        <div style={{ marginTop: 18 }}>{score.categories.map(([label, value]) => <div key={label} style={{ marginTop: 18 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 7 }}><span className="label">{label}</span><span className="meta">{value}/100</span></div><ProgressBar value={value} tone={value >= 65 ? "success" : "accent"} /></div>)}</div>
+      </Card>
+    </>}
+  </main></AppShell>;
 }
